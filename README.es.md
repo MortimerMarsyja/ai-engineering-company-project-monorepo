@@ -1,4 +1,4 @@
-# Proyecto de Ingeniería de IA — Plantilla para estudiantes
+# Proyecto de Compañía - Ingeniería de IA — Plantilla para estudiantes
 
 [![4Geeks Academy](https://img.shields.io/badge/4Geeks-Academy-blue)](https://4geeksacademy.com)
 [![AI Engineering](https://img.shields.io/badge/track-AI%20Engineering-green)](https://4geeksacademy.com/es/programas-de-carrera/ingenieria-ia)
