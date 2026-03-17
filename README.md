@@ -72,7 +72,7 @@ ai-engineering-project-template/
 ## Links
 
 - [4Geeks Academy — AI Engineering](https://4geeksacademy.com/es/programas-de-carrera/ingenieria-ia)
-- [How to start a coding project](https://4geeks.com/lesson/how-to-start-a-coding-project)
+- [How to start a coding project](https://4geeks.com/lesson/how-to-start-a-project)
 
 ---
 
