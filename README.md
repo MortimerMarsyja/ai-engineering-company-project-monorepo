@@ -13,41 +13,50 @@ _Base template for transversal projects in the AI Engineering Career Program —
 
 This repository is the **starter template** for transversal projects. You will work on real company scenarios (Brasaland, TrackFlow, Nexova), building deliverables that map to course milestones (Web, Programming, Backend, Telemetry, RAG, Agents, Workflows, Real-time).
 
-- **Create a template** from this repo (do not clone the milestone-specific one).
-- Read your **CONTEXT** file for your assigned company — it defines domain data, fields, and constraints.
-- Use the **skills/** folder so AI agents can assist you consistently.
+- Create a template from this repository.
+- Replace the placeholder `CONTEXT.md` with your assigned company context.
+- Use `skills/` and the directory-level `README.md` files as working guidance.
+
+---
+
+## Current status of the template
+
+The repository currently provides a **base folder structure and documentation skeleton**. It does not include runnable apps or global scripts yet.
+
+- `CONTEXT.md` is a placeholder and must be replaced with your assigned company context.
+- There is no root `AGENTS.md` yet.
+- Shared package metadata exists in `packages/shared/package.json` (`@repo/shared-types`), but no workspace runner is configured at root.
 
 ---
 
 ## Repository structure
 
 ```text
-ai-engineering-project-template/
-├── README.md                 # This file
-├── AGENTS.md                 # Index for AI agents: which skills exist and when to use them (you will add it in the future)
-├── CONTEXT.md                # Your company context (Brasaland | TrackFlow | Nexova) — add after assignment
-├── apps/                     # Your applications (web app, API, dashboards)
+ai-engineering-company-project-template/
+├── README.md
+├── README.es.md
+├── CONTEXT.md                # Placeholder to be replaced with assigned context
+├── agents/                   # Agent patterns/templates and tools docs
+├── apps/                     # Product apps (web, APIs, dashboards)
+├── data/                     # raw, process, pipelines, eval
+├── docs/                     # Project and architecture documentation
 ├── packages/
-│   └── shared-types/         # Shared TypeScript/JSON types used across apps
-├── pipelines/
-│   └── data/                 # ETL, ingestion, or data pipeline configs/scripts
-└── skills/                   # Agent skills (SKILL.md + optional examples, scripts, templates)
-    ├── research/
-    ├── data-analysis/
-    ├── web-scraping/
-    ├── code-review/
-    └── math-reasoning/
+│   └── shared/               # Shared package (@repo/shared-types)
+├── scripts/                  # Script conventions/documentation
+├── shared/                   # Shared assets/conventions at repo level
+├── skills/                   # Reusable agent skills
+└── workflows/                # Automation/orchestration documentation
 ```
 
 ---
 
 ## How to start
 
-1. **Fork** this repository to your GitHub account.
-2. **Clone** your fork (or open in GitHub Codespaces).
-3. **Add your CONTEXT**: copy the `CONTEXT-<company>.md` for your assigned company into the root as `CONTEXT.md`.
-4. **Read** `AGENTS.md` so you know which skills are available when working with AI.
-5. **Build** your milestone deliverables inside `apps/`, reusing `packages/shared-types` and `pipelines/data` as needed.
+1. **Use this repository as a template** and create your own project repo.
+2. **Clone** your repository (or open it in Codespaces).
+3. **Replace** `CONTEXT.md` with the full context for your assigned company.
+4. **Review** each top-level folder `README.md` to understand intended responsibilities (`apps/`, `data/`, `skills/`, etc.).
+5. **Start implementing** milestone deliverables in `apps/`, reusing `packages/shared/` and `data/` as needed.
 
 ---
 

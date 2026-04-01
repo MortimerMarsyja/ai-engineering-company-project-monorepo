@@ -13,41 +13,50 @@ _Las instrucciones están [disponibles en inglés](./README.md)._
 
 Este repositorio es la **plantilla de inicio** para los proyectos transversales. Trabajarás con escenarios de empresas reales (Brasaland, TrackFlow, Nexova) construyendo entregables que se corresponden con los hitos del curso (Web, Programación, Backend, Telemetría, RAG, Agentes, Workflows, Tiempo real).
 
-- **Crea una plantilla** a partir de este repo (no clones el repositorio específico del hito).
-- Lee tu archivo **CONTEXT** de la empresa asignada — define datos de dominio, campos y restricciones.
-- Usa la carpeta **skills/** para que los agentes de IA te asistan de forma coherente.
+- Crea una plantilla a partir de este repositorio.
+- Reemplaza el `CONTEXT.md` placeholder por el contexto de tu empresa asignada.
+- Usa `skills/` y los `README.md` por carpeta como guía de trabajo.
+
+---
+
+## Estado actual de la plantilla
+
+Actualmente el repositorio ofrece una **estructura base de carpetas y documentación**, pero todavía no incluye aplicaciones ejecutables ni scripts globales en la raíz.
+
+- `CONTEXT.md` es un placeholder y debe sustituirse por el contexto de la empresa asignada.
+- No existe todavía un `AGENTS.md` en la raíz.
+- Existe metadata del paquete compartido en `packages/shared/package.json` (`@repo/shared-types`), pero aún no hay runner de workspace en raíz.
 
 ---
 
 ## Estructura del repositorio
 
 ```text
-ai-engineering-project-template/
-├── README.es.md              # Este archivo
-├── AGENTS.md                 # Índice para agentes de IA: qué skills existen y cuándo usarlas (lo añadirás en el futuro)
-├── CONTEXT.md                # Contexto de tu empresa (Brasaland | TrackFlow | Nexova) — añadir tras la asignación
-├── apps/                     # Tus aplicaciones (web, API, dashboards)
+ai-engineering-company-project-template/
+├── README.md
+├── README.es.md
+├── CONTEXT.md                # Placeholder a reemplazar con el contexto asignado
+├── agents/                   # Patrones/plantillas de agentes y documentación de tools
+├── apps/                     # Aplicaciones del producto (web, APIs, dashboards)
+├── data/                     # raw, process, pipelines, eval
+├── docs/                     # Documentación de proyecto y arquitectura
 ├── packages/
-│   └── shared-types/         # Tipos TypeScript/JSON compartidos entre apps
-├── pipelines/
-│   └── data/                 # ETL, ingesta o configs/scripts de pipelines de datos
-└── skills/                   # Skills de agentes (SKILL.md + ejemplos, scripts, plantillas opcionales)
-    ├── research/
-    ├── data-analysis/
-    ├── web-scraping/
-    ├── code-review/
-    └── math-reasoning/
+│   └── shared/               # Paquete compartido (@repo/shared-types)
+├── scripts/                  # Convenciones/documentación de scripts
+├── shared/                   # Recursos/convenciones compartidas a nivel repo
+├── skills/                   # Skills reutilizables para agentes
+└── workflows/                # Documentación de automatizaciones/orquestación
 ```
 
 ---
 
 ## Cómo empezar
 
-1. Haz **fork** de este repositorio a tu cuenta de GitHub.
-2. **Clona** tu fork (o ábrelo en GitHub Codespaces).
-3. **Añade tu CONTEXT**: copia el `CONTEXT-<empresa>.md` de tu empresa asignada en la raíz como `CONTEXT.md`.
-4. **Lee** `AGENTS.md` para saber qué skills tienes disponibles al trabajar con IA.
-5. **Construye** los entregables de cada hito dentro de `apps/`, reutilizando `packages/shared-types` y `pipelines/data` cuando convenga.
+1. **Usa este repositorio como plantilla** y crea tu propio repo de proyecto.
+2. **Clona** tu repositorio (o ábrelo en Codespaces).
+3. **Reemplaza** `CONTEXT.md` con el contexto completo de tu empresa asignada.
+4. **Revisa** los `README.md` de cada carpeta raíz para entender responsabilidades (`apps/`, `data/`, `skills/`, etc.).
+5. **Empieza a implementar** entregables por hito en `apps/`, reutilizando `packages/shared/` y `data/` según corresponda.
 
 ---
 
