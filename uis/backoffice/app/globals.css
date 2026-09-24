@@ -1,14 +1,17 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme inline {
+  --color-brasa-red: #c83e2c;
+  --color-brasa-red-dark: #a83024;
+  --color-brasa-brown: #3d2013;
+  --color-brasa-gold: #d4a84b;
+  --color-brasa-cream: #faf6f1;
+  --color-brasa-orange: #e07a3a;
+}
 
 :root {
-  --brasa-red: #c83e2c;
-  --brasa-red-dark: #a83024;
-  --brasa-brown: #3d2013;
-  --brasa-gold: #d4a84b;
-  --brasa-cream: #faf6f1;
-  --brasa-orange: #e07a3a;
+  --background: #ffffff;
+  --foreground: #171717;
 }
 
 body {

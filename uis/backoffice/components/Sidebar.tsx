@@ -7,7 +7,9 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: "📊" },
   { name: "Locations", href: "/locations", icon: "📍" },
   { name: "Orders", href: "/orders", icon: "📋" },
+  { name: "Incidents", href: "/incidents", icon: "🚨" },
   { name: "Brasa Points", href: "/loyalty", icon: "⭐" },
+  { name: "Hiring", href: "/hiring", icon: "👥" },
 ];
 
 export default function Sidebar() {
