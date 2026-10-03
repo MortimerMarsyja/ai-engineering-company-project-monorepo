@@ -208,3 +208,76 @@ class SupplierStatusUpdate(BaseModel):
 
 # Backward-compatible name for code that uses Supplier as the input schema.
 Supplier = SupplierCreate
+
+
+# ── Candidate Records (Hiring Pipeline) ──────────────────
+class CandidateStatus(str, Enum):
+    RECEIVED = "received"
+    IN_PROGRESS = "in_progress"
+    SELECTED = "selected"
+    DISCARDED = "discarded"
+
+
+class CandidateStage(str, Enum):
+    PENDING = "pending"
+    REVIEW = "review"
+    PERSONAL_INTERVIEW = "personal_interview"
+    TECHNICAL_INTERVIEW = "technical_interview"
+    OFFER_PRESENTED = "offer_presented"
+
+
+class RecordCreate(BaseModel):
+    full_name: str = Field(..., min_length=1)
+    email: str = Field(..., pattern=r"^[\w.+-]+@[\w-]+(?:\.[\w-]+)+$")
+    phone: str = Field(..., min_length=1)
+    position: str = Field(..., min_length=1)
+    linkedin_url: str | None = None
+    cv_url: str | None = None
+    experience_years: int = Field(..., ge=0)
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+
+class RecordUpdate(RecordCreate):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+
+class RecordPatch(BaseModel):
+    status: CandidateStatus | None = None
+    stage: CandidateStage | None = None
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+
+class CandidateNoteCreate(BaseModel):
+    content: str = Field(..., min_length=1)
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+
+class CandidateNote(BaseModel):
+    id: str
+    record_id: str
+    content: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CandidateResponse(BaseModel):
+    id: str
+    full_name: str
+    email: str
+    phone: str
+    position: str
+    linkedin_url: str | None
+    cv_url: str | None
+    status: CandidateStatus
+    stage: CandidateStage
+    experience_years: int
+    notes_count: int
+    applied_at: datetime
+    updated_at: datetime
+    notes: list[CandidateNote] = Field(default_factory=list)
+
+    model_config = ConfigDict(from_attributes=True)
