@@ -43,7 +43,7 @@ export default function SalesChart({ sales }: SalesChartProps) {
       </div>
 
       {/* Simple bar chart */}
-      <div className="flex h-48 items-end gap-2">
+      <div data-skeleton-visual className="flex h-48 items-end gap-2">
         {displayDates.map((date, i) => {
           const height = (displayRevenues[i] / displayMax) * 100;
           const dayLabel = new Date(date).toLocaleDateString("en-US", {

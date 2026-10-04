@@ -27,7 +27,7 @@ router = APIRouter(prefix="/records", tags=["records"])
 
 
 # ── GET /records ──────────────────────────────────────────
-@router.get("/")
+@router.get("")
 async def list_records(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -45,7 +45,7 @@ async def list_records(
 
 
 # ── POST /records ─────────────────────────────────────────
-@router.post("/", response_model=CandidateResponse, status_code=201)
+@router.post("", response_model=CandidateResponse, status_code=201)
 async def create_record(
     payload: RecordCreate,
     current_user: dict = Depends(get_current_user),

@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useCallback, useRef } from "react";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useCallback, useRef } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import CheckboxGroup from "./CheckboxGroup";
 import {
   STATUS_OPTIONS,
@@ -14,8 +14,7 @@ function buildUrl(pathname: string, params: URLSearchParams): string {
   return qs ? `${pathname}?${qs}` : pathname;
 }
 
-function CandidateFiltersInner() {
-  const searchParams = useSearchParams();
+export default function CandidateFilters({ searchParams }: { searchParams: Pick<URLSearchParams, "get" | "getAll" | "toString"> }) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -120,19 +119,5 @@ function CandidateFiltersInner() {
         </button>
       )}
     </div>
-  );
-}
-
-export default function CandidateFilters() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex flex-col gap-4">
-          <div className="h-9 w-full animate-pulse rounded-lg bg-zinc-100" />
-        </div>
-      }
-    >
-      <CandidateFiltersInner />
-    </Suspense>
   );
 }

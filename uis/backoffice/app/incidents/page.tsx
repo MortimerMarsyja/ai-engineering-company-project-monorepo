@@ -194,7 +194,7 @@ export default function IncidentsPage() {
             <div className="rounded-xl border border-red-100 bg-white p-6 shadow-sm">
               <h3 className="mb-5 text-lg font-semibold text-gray-900">
                 Invalid Records
-                <span className="ml-2 inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-600">
+                <span className="ml-2 inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-600">
                   {results.invalidCount}
                 </span>
               </h3>

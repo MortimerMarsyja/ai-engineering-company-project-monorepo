@@ -1,0 +1,74 @@
+/* Preserve the real component boxes and responsive rules; replace their content. */
+.loading {
+  pointer-events: none;
+  user-select: none;
+}
+
+.loading * {
+  color: transparent !important;
+  text-shadow: none !important;
+  caret-color: transparent !important;
+  animation: none !important;
+}
+
+.loading :is(h1, h2, h3, h4, h5, h6, p, label, legend, dt, dd, th, td, a, span, button) {
+  visibility: hidden;
+}
+
+.loading :is(h1, h2, h3, h4, h5, h6, p, label, legend, dt, dd, th, td, a, span, button, div):not(:has(*)):not(:empty),
+.loading :is(h1, h2, h3, h4, h5, h6, p, button, a):not(:empty) {
+  position: relative;
+  visibility: hidden;
+}
+
+.loading :is(h1, h2, h3, h4, h5, h6, p, label, legend, dt, dd, th, td, a, span, button, div):not(:has(*)):not(:empty)::after,
+.loading :is(h1, h2, h3, h4, h5, h6, p, button, a):not(:empty)::after {
+  content: "";
+  position: absolute;
+  inset: 17.5% auto 17.5% 0;
+  width: min(100%, 14rem);
+  border-radius: 0.25rem;
+  background: #e4e4e7;
+  visibility: visible;
+}
+
+.loading :is(input, select, textarea, button) {
+  appearance: none;
+  background: #f4f4f5 !important;
+  border-color: #e4e4e7 !important;
+}
+
+.loading :is(input, textarea)::placeholder {
+  color: transparent;
+}
+
+.loading :is(svg, img, canvas, [data-skeleton-visual]) {
+  visibility: hidden;
+}
+
+.loading [data-skeleton-visual] {
+  position: relative;
+}
+
+.loading [data-skeleton-visual]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 0.5rem;
+  background: #f4f4f5;
+  visibility: visible;
+}
+
+.loading [data-skeleton-visual] *::after {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .loading {
+    animation: pulse 2s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse {
+  50% { opacity: 0.5; }
+}

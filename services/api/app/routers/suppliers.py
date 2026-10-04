@@ -61,7 +61,7 @@ def _doc_to_response(doc: dict) -> dict:
 
 
 # ── POST /suppliers ───────────────────────────────────────
-@router.post("/", response_model=ApiResponse, status_code=201)
+@router.post("", response_model=ApiResponse, status_code=201)
 async def create_supplier(
     payload: SupplierCreate,
     current_user: dict = Depends(require_staff),
@@ -96,7 +96,7 @@ async def create_supplier(
 
 
 # ── GET /suppliers ────────────────────────────────────────
-@router.get("/", response_model=ApiResponse)
+@router.get("", response_model=ApiResponse)
 async def list_suppliers(
     product_category: Optional[ProductCategory] = Query(
         None, description="Filter by product category"

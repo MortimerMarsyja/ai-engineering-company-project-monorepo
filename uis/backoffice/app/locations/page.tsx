@@ -1,6 +1,7 @@
 "use client";
 
 import { locations, generateDailySales, getRevenueByLocation } from "../../lib/data";
+import styles from "./locations.module.css";
 
 export default function LocationsPage() {
   const sales = generateDailySales();
@@ -24,15 +25,15 @@ export default function LocationsPage() {
     return (
       <div
         key={location.id}
-        className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:shadow-md"
+        className={`${styles.card} rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:shadow-md`}
       >
-        <div className="mb-3 flex items-start justify-between">
-          <div>
+        <div className="mb-3 flex items-start justify-between gap-2">
+          <div className="min-w-0">
             <h4 className="font-semibold text-gray-900">{location.name}</h4>
             <p className="mt-0.5 text-xs text-gray-400">{location.city}</p>
           </div>
           <span
-            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+            className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
               location.country === "Colombia"
                 ? "bg-yellow-100 text-yellow-800"
                 : "bg-blue-100 text-blue-800"
@@ -42,22 +43,22 @@ export default function LocationsPage() {
           </span>
         </div>
 
-        <div className="mb-3 grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-lg bg-gray-50 p-2">
-            <p className="text-lg font-bold text-gray-900">${(revenue / 1000).toFixed(1)}k</p>
-            <p className="text-[10px] text-gray-400">Revenue</p>
+        <div className={`${styles.metrics} mb-3 text-center`}>
+          <div className="min-w-0 rounded-lg bg-gray-50 p-2">
+            <p className={`${styles.value} font-bold text-gray-900`}>${(revenue / 1000).toFixed(1)}k</p>
+            <p className="whitespace-nowrap text-[10px] text-gray-400">Revenue</p>
           </div>
-          <div className="rounded-lg bg-gray-50 p-2">
-            <p className="text-lg font-bold text-gray-900">{orders}</p>
-            <p className="text-[10px] text-gray-400">Orders</p>
+          <div className="min-w-0 rounded-lg bg-gray-50 p-2">
+            <p className={`${styles.value} font-bold text-gray-900`}>{orders}</p>
+            <p className="whitespace-nowrap text-[10px] text-gray-400">Orders</p>
           </div>
-          <div className="rounded-lg bg-gray-50 p-2">
-            <p className="text-lg font-bold text-gray-900">${avgTicket}</p>
-            <p className="text-[10px] text-gray-400">Avg Ticket</p>
+          <div className="min-w-0 rounded-lg bg-gray-50 p-2">
+            <p className={`${styles.value} font-bold text-gray-900`}>${avgTicket}</p>
+            <p className="whitespace-nowrap text-[10px] text-gray-400">Avg Ticket</p>
           </div>
         </div>
 
-        <div className="space-y-1 text-xs text-gray-500">
+        <div className={`${styles.details} text-xs text-gray-500`}>
           <p>📍 {location.address}</p>
           <p>📞 {location.phone}</p>
           <p>👤 {location.manager} · {location.employees} staff</p>
@@ -84,7 +85,7 @@ export default function LocationsPage() {
             Colombia ({colombiaLocations.length} locations)
           </h2>
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className={styles.grid}>
           {colombiaLocations.map(renderLocationCard)}
         </div>
       </section>
@@ -97,7 +98,7 @@ export default function LocationsPage() {
             United States ({usLocations.length} locations)
           </h2>
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className={styles.grid}>
           {usLocations.map(renderLocationCard)}
         </div>
       </section>

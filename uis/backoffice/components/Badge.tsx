@@ -21,7 +21,7 @@ export default function Badge({
   return (
     <span
       title={title ?? label}
-      className={`inline-flex ${maxWidthClass} cursor-help overflow-hidden whitespace-nowrap text-ellipsis rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}
+      className={`inline-block shrink-0 whitespace-nowrap ${maxWidthClass} cursor-help truncate rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}
     >
       {children ?? display}
     </span>

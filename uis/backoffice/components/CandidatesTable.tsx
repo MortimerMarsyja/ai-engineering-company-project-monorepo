@@ -13,9 +13,24 @@ import type { Candidate } from "@/lib/types";
 
 export default function CandidatesTable({
   candidates,
+  isLoading = false,
 }: {
-  candidates: Candidate[];
+  candidates?: Candidate[];
+  isLoading?: boolean;
 }) {
+  const rows: Candidate[] = isLoading
+    ? Array.from({ length: 8 }, (_, index) => ({
+        id: `placeholder-${index}`, full_name: "\u00a0".repeat(20), email: "\u00a0".repeat(28),
+        phone: "", position: "\u00a0".repeat(18), linkedin_url: null, cv_url: null,
+        status: "received", stage: "pending", experience_years: 0,
+        notes_count: 0, applied_at: "2000-01-01", updated_at: "2000-01-01",
+      }))
+    : candidates ?? [];
+
+  if (rows.length === 0) {
+    return null;
+  }
+
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
@@ -35,7 +50,7 @@ export default function CandidatesTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
-            {candidates.map((candidate) => (
+            {rows.map((candidate) => (
               <tr
                 key={candidate.id}
                 className="relative transition-colors hover:bg-zinc-50"

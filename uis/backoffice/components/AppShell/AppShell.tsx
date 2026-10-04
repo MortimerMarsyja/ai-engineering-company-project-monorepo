@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import Sidebar from "@/components/Sidebar";
+import PageSkeleton from "@/components/PageSkeleton";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const publicRoutes = new Set([
@@ -19,21 +20,10 @@ interface AppShellProps {
 export default function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const isPublicRoute = publicRoutes.has(pathname);
-  const { status, retry } = useAuthGuard(pathname, isPublicRoute);
+  const { status, error, retry } = useAuthGuard(pathname, isPublicRoute);
 
   if (isPublicRoute) {
     return <main className="min-h-screen">{children}</main>;
-  }
-
-  if (status === "checking") {
-    return (
-      <main
-        className="flex min-h-screen items-center justify-center bg-gray-50 px-4"
-        aria-live="polite"
-      >
-        <p className="text-sm font-medium text-gray-500">Checking your session...</p>
-      </main>
-    );
   }
 
   if (status === "unavailable") {
@@ -42,7 +32,7 @@ export default function AppShell({ children }: AppShellProps) {
         <div className="max-w-sm text-center">
           <h1 className="text-xl font-bold text-gray-950">Unable to verify session</h1>
           <p className="mt-2 text-sm leading-6 text-gray-600">
-            The authentication service is unavailable. Try again before continuing.
+            {error ?? "The authentication service is unavailable. Try again before continuing."}
           </p>
           <button
             type="button"
@@ -60,7 +50,9 @@ export default function AppShell({ children }: AppShellProps) {
     <div className="flex min-h-screen">
       <Sidebar />
       <main className="ml-[168px] min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
-        {children}
+        <PageSkeleton loading={status === "checking"}>
+          {children}
+        </PageSkeleton>
       </main>
     </div>
   );

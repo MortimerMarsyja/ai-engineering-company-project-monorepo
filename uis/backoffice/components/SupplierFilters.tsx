@@ -1,13 +1,12 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useCallback, useTransition } from "react";
 import { CATEGORY_OPTIONS, STATUS_OPTIONS } from "@/lib/suppliers-api";
 import CheckboxGroup from "./CheckboxGroup";
 
-export default function SupplierFilters() {
+export default function SupplierFilters({ searchParams }: { searchParams: Pick<URLSearchParams, "get" | "getAll" | "toString"> }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
   const selectedCategories = searchParams.getAll("product_category");

@@ -114,7 +114,7 @@ export default function OrdersPage() {
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-sm font-bold text-gray-900">{order.id}</span>
                   <span
-                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${statusColors[order.status]}`}
+                    className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${statusColors[order.status]}`}
                   >
                     {statusEmoji[order.status]} {order.status}
                   </span>

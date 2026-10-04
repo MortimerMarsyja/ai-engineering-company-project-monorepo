@@ -9,8 +9,7 @@ import type {
   NotesResponse,
   RecordCreate,
 } from "./types";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL as string;
+import { authenticatedFetch } from "./authenticated-fetch";
 
 interface FetchCandidatesParams {
   page?: number;
@@ -35,7 +34,7 @@ export async function fetchCandidates({
     params.set("search", search);
   }
 
-  const res = await fetch(`${API_URL}/records?${params.toString()}`, {
+  const res = await authenticatedFetch(`/api/proxy/records?${params.toString()}`, {
     cache: "no-store",
     headers: { accept: "application/json" },
   });
@@ -62,7 +61,7 @@ export async function fetchCandidates({
 }
 
 export async function fetchCandidate(id: string): Promise<Candidate> {
-  const res = await fetch(`${API_URL}/records/${id}`, {
+  const res = await authenticatedFetch(`/api/proxy/records/${id}`, {
     cache: "no-store",
     headers: { accept: "application/json" },
   });
@@ -80,7 +79,7 @@ export async function patchCandidate(
   id: string,
   body: CandidatePatch,
 ): Promise<Candidate> {
-  const res = await fetch(`${API_URL}/records/${id}`, {
+  const res = await authenticatedFetch(`/api/proxy/records/${id}`, {
     method: "PATCH",
     headers: {
       accept: "application/json",
@@ -100,7 +99,7 @@ export async function patchCandidate(
 }
 
 export async function fetchNotes(id: string): Promise<CandidateNote[]> {
-  const res = await fetch(`${API_URL}/records/${id}/notes`, {
+  const res = await authenticatedFetch(`/api/proxy/records/${id}/notes`, {
     cache: "no-store",
     headers: { accept: "application/json" },
   });
@@ -119,7 +118,7 @@ export async function createNote(
   id: string,
   body: NoteCreate,
 ): Promise<CandidateNote> {
-  const res = await fetch(`${API_URL}/records/${id}/notes`, {
+  const res = await authenticatedFetch(`/api/proxy/records/${id}/notes`, {
     method: "POST",
     headers: {
       accept: "application/json",
@@ -139,7 +138,7 @@ export async function createNote(
 }
 
 export async function deleteNote(id: string, noteId: string): Promise<void> {
-  const res = await fetch(`${API_URL}/records/${id}/notes/${noteId}`, {
+  const res = await authenticatedFetch(`/api/proxy/records/${id}/notes/${noteId}`, {
     method: "DELETE",
     headers: { accept: "application/json" },
   });
@@ -154,7 +153,7 @@ export async function deleteNote(id: string, noteId: string): Promise<void> {
 export async function createCandidate(
   body: RecordCreate,
 ): Promise<Candidate> {
-  const res = await fetch(`${API_URL}/records`, {
+  const res = await authenticatedFetch(`/api/proxy/records`, {
     method: "POST",
     headers: {
       accept: "application/json",
@@ -177,7 +176,7 @@ export async function updateCandidate(
   id: string,
   body: RecordCreate,
 ): Promise<Candidate> {
-  const res = await fetch(`${API_URL}/records/${id}`, {
+  const res = await authenticatedFetch(`/api/proxy/records/${id}`, {
     method: "PUT",
     headers: {
       accept: "application/json",

@@ -61,9 +61,9 @@ export async function fetchSuppliers(params?: {
   if (params?.product_category) query.set("product_category", params.product_category);
   if (params?.status) query.set("status", params.status);
   const qs = query.toString();
-  const url = `${API_URL}/suppliers${qs ? `?${qs}` : ""}`;
+  const url = `/api/proxy/suppliers${qs ? `?${qs}` : ""}`;
 
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await authenticatedFetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to fetch suppliers (${res.status})`);
 
   const json: ApiResponse<Supplier[]> = await res.json();
@@ -72,7 +72,7 @@ export async function fetchSuppliers(params?: {
 }
 
 export async function fetchSupplier(id: number): Promise<Supplier> {
-  const res = await fetch(`${API_URL}/suppliers/${id}`, {
+  const res = await authenticatedFetch(`/api/proxy/suppliers/${id}`, {
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`Supplier not found (${res.status})`);

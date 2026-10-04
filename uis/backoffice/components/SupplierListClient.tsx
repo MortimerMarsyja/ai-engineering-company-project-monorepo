@@ -1,21 +1,26 @@
 "use client";
 
-import { useState } from "react";
 import type { Supplier } from "@/lib/suppliers-types";
 import SuppliersTable from "./SuppliersTable";
 
 export default function SupplierListClient({
-  suppliers: initial,
+  suppliers = [],
+  isLoading = false,
+  onSupplierUpdated,
 }: {
-  suppliers: Supplier[];
+  suppliers?: Supplier[];
+  isLoading?: boolean;
+  onSupplierUpdated: (supplier: Supplier) => void;
 }) {
-  const [suppliers, setSuppliers] = useState(initial);
-
-  function handleSupplierUpdated(updated: Supplier) {
-    setSuppliers((prev) =>
-      prev.map((s) => (s.id === updated.id ? updated : s)),
-    );
-  }
+  const rows: Supplier[] = isLoading
+    ? Array.from({ length: 6 }, (_, index) => ({
+        id: -index - 1, full_name: "\u00a0".repeat(20), email: "\u00a0".repeat(28), phone: "",
+        country: "Colombia", city: "\u00a0".repeat(12), favorite_location: null,
+        dietary_preferences: [], how_did_you_find_us: "", date_of_birth: "",
+        accepts_terms: false, wants_email_offers: false, product_category: "Other",
+        rate: 0, status: "active", created_at: "", updated_at: "",
+      }))
+    : suppliers;
 
   const activeCount = suppliers.filter((s) => s.status === "active").length;
   const suspendedCount = suppliers.filter(
@@ -41,8 +46,8 @@ export default function SupplierListClient({
 
       {/* Table */}
       <SuppliersTable
-        suppliers={suppliers}
-        onSupplierUpdated={handleSupplierUpdated}
+        suppliers={rows}
+        onSupplierUpdated={onSupplierUpdated}
       />
     </>
   );

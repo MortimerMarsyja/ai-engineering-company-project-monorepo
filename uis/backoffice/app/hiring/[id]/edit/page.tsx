@@ -1,8 +1,6 @@
 import { notFound } from "next/navigation";
 import { fetchCandidate } from "@/lib/api";
-import CandidateForm from "@/components/CandidateForm";
-import BackLink from "@/components/BackLink";
-import PageHeader from "@/components/PageHeader";
+import CandidateEdit from "@/components/CandidateEdit";
 
 export default async function EditCandidatePage({
   params,
@@ -18,16 +16,5 @@ export default async function EditCandidatePage({
     notFound();
   }
 
-  return (
-    <div>
-      <BackLink href={`/hiring/${id}`}>Back to candidate</BackLink>
-
-      <PageHeader
-        title="Edit candidate"
-        description={`Update ${candidate.full_name}'s details.`}
-      />
-
-      <CandidateForm mode="edit" candidate={candidate} />
-    </div>
-  );
+  return <CandidateEdit candidate={candidate} />;
 }

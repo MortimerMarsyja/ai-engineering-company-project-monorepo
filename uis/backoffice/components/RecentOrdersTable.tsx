@@ -54,7 +54,7 @@ export default function RecentOrdersTable({ orders, locations }: RecentOrdersTab
                   </td>
                   <td className="whitespace-nowrap py-3">
                     <span
-                      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${statusColors[order.status]}`}
+                      className={`inline-block shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${statusColors[order.status]}`}
                     >
                       {order.status}
                     </span>

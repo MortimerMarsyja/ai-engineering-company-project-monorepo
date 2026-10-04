@@ -75,6 +75,16 @@ Additional public types, utilities, or subcomponents may also be exported from `
 
 Internal implementation details should **not** be exported unless they are intended to be consumed outside the component directory.
 
+## Loading Skeletons
+
+**Every screen must include its own matching loading skeleton.**
+
+* Implement loading states through a reusable wrapper around the screen's own components, displaying placeholders without visible data while the page, session, or required data loads.
+* Reuse the same components and layout for loading and loaded states. The skeleton must match the elements, dimensions, spacing, and responsive behavior of the screen it represents.
+* Use `loading.tsx` and Suspense where appropriate for Next.js route loading, and handle client-side data loading with the same wrapper.
+* Keep skeletons synchronized whenever the screen's components or layout change.
+* Loading content must be non-interactive, provide an accessible loading announcement, and respect reduced-motion preferences.
+
 ## Mobile First
 
 The application must be developed using a **mobile-first approach**.
@@ -171,5 +181,6 @@ Before considering a task complete:
 6. Confirm that existing functionality has not been unintentionally broken.
 7. Keep changes focused on the requested task and avoid unrelated refactors.
 8. Verify that newly created components expose their public API through their `index.ts` file.
+9. Verify that every new or modified screen has a matching loading skeleton that uses its own components and layout on mobile and desktop.
 
 When multiple valid implementations exist, prefer the solution that is **simpler, accessible, performant, SEO-friendly, and consistent with Next.js best practices**.
