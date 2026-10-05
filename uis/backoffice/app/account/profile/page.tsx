@@ -1,11 +1,13 @@
 "use client";
 
 import PageSkeleton, { usePageLoading } from "@/components/PageSkeleton";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { KeyRound, Mail, MapPin, Pencil, Phone, UserRound } from "lucide-react";
 import { TOKEN_STORAGE_KEY } from "@/lib/auth";
+import ErrorState from "@/components/ErrorState";
+import { isRetryableError } from "@/lib/api-error";
 import {
   getCurrentAccount,
   ProfileRequestError,
@@ -21,63 +23,63 @@ export default function ProfilePage() {
   const sessionLoading = usePageLoading();
   const router = useRouter();
   const [account, setAccount] = useState<Account | null>(null);
-  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<unknown>(null);
   const [updateSucceeded, setUpdateSucceeded] = useState(false);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const currentAccount = await getCurrentAccount();
+      setAccount(currentAccount);
+    } catch (requestError) {
+      if (requestError instanceof ProfileRequestError && requestError.status === 401) {
+        window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+        router.replace("/login");
+        return;
+      }
+
+      setError(requestError);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [router]);
 
   useEffect(() => {
     if (sessionLoading) return;
-    let isActive = true;
 
     if (window.sessionStorage.getItem("brasaland_profile_updated")) {
       window.sessionStorage.removeItem("brasaland_profile_updated");
       setUpdateSucceeded(true);
     }
 
-    getCurrentAccount()
-      .then((currentAccount) => {
-        if (isActive) setAccount(currentAccount);
-      })
-      .catch((requestError: unknown) => {
-        if (!isActive) return;
-
-        if (requestError instanceof ProfileRequestError && requestError.status === 401) {
-          window.localStorage.removeItem(TOKEN_STORAGE_KEY);
-          router.replace("/login");
-          return;
-        }
-
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Unable to load your profile.",
-        );
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [router, sessionLoading]);
+    load();
+  }, [sessionLoading, load]);
 
   if (error) {
     return (
       <section className="mx-auto max-w-3xl">
         <h1 className="text-2xl font-bold text-gray-950">Account profile</h1>
-        <p className="mt-4 rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700" role="alert">
-          {error}
-        </p>
+        <div className="mt-4">
+          <ErrorState
+            message={error instanceof Error ? error.message : "We couldn't load your profile. Please try again."}
+            onRetry={isRetryableError(error) ? load : undefined}
+          />
+        </div>
       </section>
     );
   }
 
   const fields = [
     { label: "Email", value: account?.email, icon: Mail },
-    { label: "Full name", value: account?.profile.name, icon: UserRound },
-    { label: "Phone", value: account?.profile.phone, icon: Phone },
-    { label: "Address", value: account?.profile.address, icon: MapPin },
+    { label: "Full name", value: account?.profile?.name, icon: UserRound },
+    { label: "Phone", value: account?.profile?.phone, icon: Phone },
+    { label: "Address", value: account?.profile?.address, icon: MapPin },
   ];
 
   return (
-    <PageSkeleton loading={!account}>
+    <PageSkeleton loading={isLoading || !account}>
       <section className="mx-auto max-w-3xl">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>

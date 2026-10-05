@@ -2,12 +2,14 @@
 
 import PageSkeleton, { usePageLoading } from "@/components/PageSkeleton";
 import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { fetchSuppliers } from "@/lib/suppliers-api";
 import PageHeader from "@/components/PageHeader";
 import SupplierFilters from "@/components/SupplierFilters";
 import SupplierListClient from "@/components/SupplierListClient";
+import ErrorState from "@/components/ErrorState";
+import { isRetryableError } from "@/lib/api-error";
 import type { Supplier } from "@/lib/suppliers-types";
 
 const emptySearchParams = new URLSearchParams();
@@ -29,35 +31,33 @@ function SuppliersContent({ searchParams }: { searchParams: Pick<URLSearchParams
   const sessionLoading = usePageLoading();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<unknown>(null);
+
+  const loadSuppliers = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    const category = searchParams.get("product_category") ?? undefined;
+    const status = searchParams.get("status") ?? undefined;
+
+    try {
+      const data = await fetchSuppliers({
+        product_category: category,
+        status,
+      });
+
+      setSuppliers(data ?? []);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (sessionLoading) return;
-    const loadSuppliers = async () => {
-      setIsLoading(true);
-      setError("");
-
-      const category = searchParams.get("product_category") ?? undefined;
-      const status = searchParams.get("status") ?? undefined;
-
-      try {
-        const data = await fetchSuppliers({
-          product_category: category,
-          status,
-        });
-
-        setSuppliers(data);
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to load suppliers.";
-        setError(message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     loadSuppliers();
-  }, [searchParams, sessionLoading]);
+  }, [sessionLoading, loadSuppliers]);
 
   return (
     <PageSkeleton loading={isLoading && !error}>
@@ -78,9 +78,10 @@ function SuppliersContent({ searchParams }: { searchParams: Pick<URLSearchParams
         <SupplierFilters searchParams={searchParams} />
 
         {error ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            {error}
-          </div>
+          <ErrorState
+            message={error instanceof Error ? error.message : "We couldn't load suppliers right now. Please try again."}
+            onRetry={isRetryableError(error) ? loadSuppliers : undefined}
+          />
         ) : suppliers.length === 0 && !isLoading ? (
           <div className="rounded-lg border border-dashed border-zinc-300 px-4 py-12 text-center text-sm text-zinc-500">
             No suppliers found.

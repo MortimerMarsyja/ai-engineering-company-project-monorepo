@@ -25,7 +25,11 @@ SCORE_LABELS = {
 
 
 def load_csv(path: str) -> list[dict]:
-    """Load and return all rows from the CSV as a list of dicts."""
+    """Load and return all rows from the CSV as a list of dicts.
+
+    Raises OSError/csv.Error on failure — callers are expected to catch,
+    print an informative message to stderr, and exit non-zero.
+    """
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         return list(reader)
@@ -225,25 +229,23 @@ def export_to_csv(results: dict, dest: str) -> None:
         writer = csv.writer(f)
         writer.writerows(rows)
 
-    print(f"\n✅ Results exported to {dest}")
-
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python analyze.py <path-to-csv>")
-        print("Example: python analyze.py incidents.csv")
+        print("Usage: python analyze.py <path-to-csv>", file=sys.stderr)
+        print("Example: python analyze.py incidents.csv", file=sys.stderr)
         sys.exit(1)
 
     filepath = sys.argv[1]
 
     if not os.path.isfile(filepath):
-        print(f"Error: file not found — {filepath}")
+        print(f"Error: file not found — {filepath}", file=sys.stderr)
         sys.exit(1)
 
     try:
         rows = load_csv(filepath)
-    except Exception as e:
-        print(f"Error reading CSV: {e}")
+    except (OSError, csv.Error) as e:
+        print(f"Error reading CSV '{filepath}': {e}", file=sys.stderr)
         sys.exit(1)
 
     if not rows:
@@ -257,7 +259,12 @@ def main():
     while True:
         answer = input("Export results to CSV? [y / n]: ").strip().lower()
         if answer in ("y", "yes"):
-            export_to_csv(results, "results.csv")
+            try:
+                export_to_csv(results, "results.csv")
+            except OSError as e:
+                print(f"Error writing results.csv: {e}", file=sys.stderr)
+                sys.exit(1)
+            print("\n✅ Results exported to results.csv")
             break
         elif answer in ("n", "no"):
             print("No export performed.")

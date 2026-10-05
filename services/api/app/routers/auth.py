@@ -18,7 +18,7 @@ from app.models.user import (
     UserUpdate,
 )
 from app.services import password_resets, users as users_service
-from app.services.email import send_password_reset_email
+from app.services.email import EmailDeliveryError, send_password_reset_email
 
 logger = logging.getLogger(__name__)
 
@@ -70,8 +70,10 @@ async def forgot_password(payload: ForgotPasswordRequest):
         )
         try:
             send_password_reset_email(payload.email, reset_url)
-        except Exception:
-            logger.exception("Unable to send password reset email")
+        except EmailDeliveryError:
+            # Log by user id, never the raw exception/email/token — the
+            # response below stays identical either way (anti-enumeration).
+            logger.exception("Unable to send password reset email for user_id=%s", user["id"])
 
     return ApiResponse(
         message="If an account exists for that email, a reset link has been sent."

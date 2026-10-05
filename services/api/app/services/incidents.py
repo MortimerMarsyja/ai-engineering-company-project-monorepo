@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 import uuid
 from collections import Counter
 from datetime import date, datetime, timezone
@@ -21,6 +22,8 @@ from app.models.schemas import (
     IncidentStatusUpdate,
     IncidentUpdate,
 )
+
+logger = logging.getLogger(__name__)
 
 # Shared TinyDB file
 _DB_PATH = Path(__file__).resolve().parent.parent.parent / "db.json"
@@ -63,6 +66,7 @@ RULE_LABELS = {
     "missing_reporter_id": "Missing reporter_id",
     "closed_no_score": "Closed case, no score",
     "score_out_of_range": "Score out of range (1-5)",
+    "persist_failed": "Could not be saved",
 }
 
 EXPECTED_COLUMNS = {
@@ -200,13 +204,25 @@ def analyze(rows: list[dict], *, persist: bool = True) -> dict:
                 invalid_reasons[e] += 1
             continue
 
+        if persist:
+            try:
+                create_incident(incident)
+            except Exception:
+                # Scoped to just the DB write: one bad row (disk full, a
+                # concurrent write conflict, etc.) must not abort the rest
+                # of the batch or get counted as if it had been saved.
+                logger.exception(
+                    "Failed to persist incident row during CSV analyze (incident_id=%s)",
+                    row.get("incident_id"),
+                )
+                invalid_rows.append(row)
+                invalid_reasons["persist_failed"] += 1
+                continue
+            persisted_count += 1
+
         valid_rows.append(row)
         category_counts[row["category"].strip()] += 1
         status_counts[row["status"].strip().upper()] += 1
-
-        if persist:
-            create_incident(incident)
-            persisted_count += 1
 
     # Satisfaction scores (only from valid closed cases with scores)
     total_closed = status_counts.get("CLOSED", 0)
@@ -353,9 +369,6 @@ def results_to_csv_bytes(results: dict) -> bytes:
 
 def create_incident(payload: IncidentCreate) -> dict:
     """Create an incident. Returns the persisted document."""
-    db = _get_db()
-    table = db.table(INCIDENTS_TABLE)
-
     now = datetime.now(timezone.utc).isoformat()
     doc = {
         "id": str(uuid.uuid4()),
@@ -364,8 +377,8 @@ def create_incident(payload: IncidentCreate) -> dict:
         "updated_at": now,
     }
 
-    table.insert(doc)
-    db.close()
+    with _get_db() as db:
+        db.table(INCIDENTS_TABLE).insert(doc)
     return doc
 
 
@@ -380,9 +393,8 @@ def list_incidents(
     limit: int = 20,
 ) -> tuple[list[dict], int]:
     """Return paginated incidents, newest first, with optional filters."""
-    db = _get_db()
-    table = db.table(INCIDENTS_TABLE)
-    docs = table.all()
+    with _get_db() as db:
+        docs = db.table(INCIDENTS_TABLE).all()
 
     if status:
         docs = [d for d in docs if d.get("status") == status]
@@ -408,35 +420,27 @@ def list_incidents(
     end = start + limit
     page_docs = docs[start:end]
 
-    db.close()
     return page_docs, total
 
 
 def get_incident_by_id(incident_id: str) -> dict | None:
-    db = _get_db()
-    table = db.table(INCIDENTS_TABLE)
-    doc = table.get(where("id") == incident_id)
-    db.close()
-    return doc
+    with _get_db() as db:
+        return db.table(INCIDENTS_TABLE).get(where("id") == incident_id)
 
 
 def update_incident(incident_id: str, payload: IncidentUpdate) -> dict | None:
     """Partially update an incident's editable fields. Returns None if not found."""
-    db = _get_db()
-    table = db.table(INCIDENTS_TABLE)
+    with _get_db() as db:
+        table = db.table(INCIDENTS_TABLE)
 
-    if table.get(where("id") == incident_id) is None:
-        db.close()
-        return None
+        if table.get(where("id") == incident_id) is None:
+            return None
 
-    data = payload.model_dump(exclude_unset=True, mode="json")
-    data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        data = payload.model_dump(exclude_unset=True, mode="json")
+        data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-    table.update(data, where("id") == incident_id)
-
-    doc = table.get(where("id") == incident_id)
-    db.close()
-    return doc
+        table.update(data, where("id") == incident_id)
+        return table.get(where("id") == incident_id)
 
 
 def update_incident_status(incident_id: str, payload: IncidentStatusUpdate) -> dict | None:
@@ -445,46 +449,38 @@ def update_incident_status(incident_id: str, payload: IncidentStatusUpdate) -> d
     Raises ValueError for an illegal transition or a resolve attempt with no
     satisfaction score on file.
     """
-    db = _get_db()
-    table = db.table(INCIDENTS_TABLE)
+    with _get_db() as db:
+        table = db.table(INCIDENTS_TABLE)
 
-    doc = table.get(where("id") == incident_id)
-    if doc is None:
-        db.close()
-        return None
+        doc = table.get(where("id") == incident_id)
+        if doc is None:
+            return None
 
-    current = IncidentStatus(doc["status"])
-    target = payload.status
+        current = IncidentStatus(doc["status"])
+        target = payload.status
 
-    if target != current and target not in INCIDENT_STATUS_TRANSITIONS.get(current, set()):
-        db.close()
-        raise ValueError(f"Cannot transition incident from {current.value} to {target.value}")
+        if target != current and target not in INCIDENT_STATUS_TRANSITIONS.get(current, set()):
+            raise ValueError(f"Cannot transition incident from {current.value} to {target.value}")
 
-    score = payload.satisfaction_score if payload.satisfaction_score is not None else doc.get("satisfaction_score")
-    if target is IncidentStatus.RESOLVED and score is None:
-        db.close()
-        raise ValueError("Resolved incidents require a satisfaction score")
+        score = payload.satisfaction_score if payload.satisfaction_score is not None else doc.get("satisfaction_score")
+        if target is IncidentStatus.RESOLVED and score is None:
+            raise ValueError("Resolved incidents require a satisfaction score")
 
-    update_fields: dict = {
-        "status": target.value,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-    }
-    if payload.satisfaction_score is not None:
-        update_fields["satisfaction_score"] = payload.satisfaction_score
+        update_fields: dict = {
+            "status": target.value,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if payload.satisfaction_score is not None:
+            update_fields["satisfaction_score"] = payload.satisfaction_score
 
-    table.update(update_fields, where("id") == incident_id)
-
-    doc = table.get(where("id") == incident_id)
-    db.close()
-    return doc
+        table.update(update_fields, where("id") == incident_id)
+        return table.get(where("id") == incident_id)
 
 
 def get_incident_metrics() -> dict:
     """Aggregate incidents for the leadership dashboard."""
-    db = _get_db()
-    table = db.table(INCIDENTS_TABLE)
-    docs = table.all()
-    db.close()
+    with _get_db() as db:
+        docs = db.table(INCIDENTS_TABLE).all()
 
     status_counts = Counter(d.get("status") for d in docs)
     category_counts = Counter(d.get("category") for d in docs)

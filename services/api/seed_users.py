@@ -9,6 +9,8 @@ Usage (via uv):
 
 from __future__ import annotations
 
+import sys
+
 from app.models.user import UserCreate, UserRole
 from app.services import users as users_service
 
@@ -77,6 +79,11 @@ def seed() -> None:
             skipped += 1
             print(f"  ⏭  Skipped (duplicate): {data['email']}")
             continue
+        except OSError as exc:
+            # Disk full, permission denied, etc. writing db.json — fail
+            # loudly rather than silently skipping the rest of the seed.
+            print(f"❌ Could not write user '{data['email']}' to the database: {exc}", file=sys.stderr)
+            sys.exit(1)
         inserted += 1
         print(f"  ✅ Inserted: {user['email']} (id={user['id']}, role={user['role']})")
 

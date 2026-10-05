@@ -4,6 +4,36 @@ import type {
   ApiResponse,
 } from "./suppliers-types";
 import { authenticatedFetch } from "./authenticated-fetch";
+import {
+  ACCESS_DENIED_ACTION_MESSAGE,
+  ACCESS_DENIED_MESSAGE,
+  ACTION_UNAVAILABLE_MESSAGE,
+  ApiError,
+} from "./api-error";
+
+/** Build a clean, user-friendly error for a failed response — never a raw
+ * status code or stack trace. 403 always gets the "wrong role" message and
+ * 405 the "not available" message, regardless of the backend's detail
+ * text, since neither is fixed by retrying the same request. */
+async function buildApiError(
+  res: Response,
+  fallback: string,
+  options?: { notFound?: string; forbidden?: string },
+): Promise<ApiError> {
+  if (res.status === 403) {
+    return new ApiError(options?.forbidden ?? ACCESS_DENIED_MESSAGE, 403);
+  }
+  if (res.status === 405) {
+    return new ApiError(ACTION_UNAVAILABLE_MESSAGE, 405);
+  }
+  if (res.status === 404 && options?.notFound) {
+    return new ApiError(options.notFound, 404);
+  }
+  const body = await res.json().catch(() => null);
+  const detail = body?.detail;
+  const message = typeof detail === "string" && detail.trim() ? detail : fallback;
+  return new ApiError(message, res.status);
+}
 
 // ── Metadata constants (mirrors candidate-meta.ts pattern) ─────
 
@@ -64,21 +94,27 @@ export async function fetchSuppliers(params?: {
   const url = `/api/proxy/suppliers${qs ? `?${qs}` : ""}`;
 
   const res = await authenticatedFetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Failed to fetch suppliers (${res.status})`);
+  if (!res.ok) {
+    throw await buildApiError(res, "We couldn't load suppliers right now. Please try again.");
+  }
 
-  const json: ApiResponse<Supplier[]> = await res.json();
-  if (!json.success) throw new Error(json.message || "Failed to fetch suppliers");
-  return json.data;
+  const json: ApiResponse<Supplier[]> = await res.json().catch(() => null) ?? { success: false, message: "", data: [] };
+  if (!json.success) throw new ApiError(json.message || "We couldn't load suppliers right now. Please try again.", res.status);
+  return json.data ?? [];
 }
 
 export async function fetchSupplier(id: number): Promise<Supplier> {
   const res = await authenticatedFetch(`/api/proxy/suppliers/${id}`, {
     cache: "no-store",
   });
-  if (!res.ok) throw new Error(`Supplier not found (${res.status})`);
+  if (!res.ok) {
+    throw await buildApiError(res, "We couldn't load this supplier. Please try again.", {
+      notFound: "We couldn't find this supplier.",
+    });
+  }
 
   const json: ApiResponse<Supplier> = await res.json();
-  if (!json.success) throw new Error(json.message || "Supplier not found");
+  if (!json.success) throw new ApiError(json.message || "We couldn't find this supplier.", res.status);
   return json.data;
 }
 
@@ -91,12 +127,13 @@ export async function createSupplier(
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new Error(body?.detail ?? `Failed to create supplier (${res.status})`);
+    throw await buildApiError(res, "We couldn't add this supplier. Please check the details and try again.", {
+      forbidden: ACCESS_DENIED_ACTION_MESSAGE,
+    });
   }
 
   const json: ApiResponse<Supplier> = await res.json();
-  if (!json.success) throw new Error(json.message || "Failed to create supplier");
+  if (!json.success) throw new ApiError(json.message || "We couldn't add this supplier. Please try again.", res.status);
   return json.data;
 }
 
@@ -110,12 +147,13 @@ export async function updateSupplierRate(
     body: JSON.stringify({ rate }),
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new Error(body?.detail ?? `Failed to update rate (${res.status})`);
+    throw await buildApiError(res, "We couldn't update this supplier's rate. Please try again.", {
+      forbidden: ACCESS_DENIED_ACTION_MESSAGE,
+    });
   }
 
   const json: ApiResponse<Supplier> = await res.json();
-  if (!json.success) throw new Error(json.message || "Failed to update rate");
+  if (!json.success) throw new ApiError(json.message || "We couldn't update this supplier's rate. Please try again.", res.status);
   return json.data;
 }
 
@@ -129,12 +167,13 @@ export async function updateSupplierStatus(
     body: JSON.stringify({ status }),
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new Error(body?.detail ?? `Failed to update status (${res.status})`);
+    throw await buildApiError(res, "We couldn't update this supplier's status. Please try again.", {
+      forbidden: ACCESS_DENIED_ACTION_MESSAGE,
+    });
   }
 
   const json: ApiResponse<Supplier> = await res.json();
-  if (!json.success) throw new Error(json.message || "Failed to update status");
+  if (!json.success) throw new ApiError(json.message || "We couldn't update this supplier's status. Please try again.", res.status);
   return json.data;
 }
 
@@ -142,5 +181,9 @@ export async function deleteSupplier(id: number): Promise<void> {
   const res = await authenticatedFetch(`/api/proxy/suppliers/${id}`, {
     method: "DELETE",
   });
-  if (!res.ok) throw new Error(`Failed to delete supplier (${res.status})`);
+  if (!res.ok) {
+    throw await buildApiError(res, "We couldn't delete this supplier. Please try again.", {
+      forbidden: ACCESS_DENIED_ACTION_MESSAGE,
+    });
+  }
 }

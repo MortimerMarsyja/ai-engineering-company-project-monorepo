@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import PageSkeleton, { usePageLoading } from "@/components/PageSkeleton";
 import PageHeader from "@/components/PageHeader";
 import KPICard from "@/components/KPICard";
 import IncidentsTable from "@/components/IncidentsTable";
 import FileDropzone from "@/components/FileDropzone";
+import ErrorState from "@/components/ErrorState";
+import { isPermissionError, isRetryableError } from "@/lib/api-error";
 import { fetchIncidentMetrics, fetchIncidents, analyzeIncidentsCsv } from "@/lib/incidents-api";
 import {
   CATEGORY_OPTIONS,
@@ -46,12 +48,13 @@ function IncidentsContent({
   const [total, setTotal] = useState(0);
   const [metrics, setMetrics] = useState<IncidentMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<unknown>(null);
+  const [metricsError, setMetricsError] = useState<unknown>(null);
 
   const [showImport, setShowImport] = useState(false);
   const [analysis, setAnalysis] = useState<AnalyzeSummary | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analyzeError, setAnalyzeError] = useState("");
+  const [analyzeError, setAnalyzeError] = useState<unknown>(null);
 
   const status = searchParams.get("status") ?? "";
   const category = searchParams.get("category") ?? "";
@@ -65,51 +68,56 @@ function IncidentsContent({
     router.push(`/incidents?${params.toString()}`);
   };
 
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const listResult = await fetchIncidents({ status, category, origin, search, limit: 50 });
+      setIncidents(listResult?.data ?? []);
+      setTotal(listResult?.total ?? 0);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setIsLoading(false);
+    }
+
+    // Metrics are a staff-only section (leadership dashboard) — a non-staff
+    // role failing to load *this* must not take down the incident list
+    // above, which that same role is otherwise fully allowed to see.
+    try {
+      const metricsResult = await fetchIncidentMetrics();
+      setMetrics(metricsResult ?? null);
+      setMetricsError(null);
+    } catch (err) {
+      setMetrics(null);
+      setMetricsError(err);
+    }
+  }, [status, category, origin, search]);
+
   useEffect(() => {
     if (sessionLoading) return;
-
-    const load = async () => {
-      setIsLoading(true);
-      setError("");
-      try {
-        const [listResult, metricsResult] = await Promise.all([
-          fetchIncidents({ status, category, origin, search, limit: 50 }),
-          fetchIncidentMetrics(),
-        ]);
-        setIncidents(listResult.data);
-        setTotal(listResult.total);
-        setMetrics(metricsResult);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load incidents.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     load();
-  }, [sessionLoading, status, category, origin, search]);
+  }, [sessionLoading, load]);
 
   const handleFileLoaded = async (content: string, name: string) => {
     const file = new File([content], name, { type: "text/csv" });
     setIsAnalyzing(true);
-    setAnalyzeError("");
+    setAnalyzeError(null);
     try {
       const summary = await analyzeIncidentsCsv(file);
-      setAnalysis(summary);
+      setAnalysis(summary ?? null);
       // Refresh the list/metrics since valid rows were persisted.
-      const [listResult, metricsResult] = await Promise.all([
-        fetchIncidents({ status, category, origin, search, limit: 50 }),
-        fetchIncidentMetrics(),
-      ]);
-      setIncidents(listResult.data);
-      setTotal(listResult.total);
-      setMetrics(metricsResult);
+      await load();
     } catch (err) {
-      setAnalyzeError(err instanceof Error ? err.message : "Failed to analyze CSV.");
+      setAnalyzeError(err);
     } finally {
       setIsAnalyzing(false);
     }
   };
+
+  function messageOf(err: unknown, fallback: string): string {
+    return err instanceof Error ? err.message : fallback;
+  }
 
   return (
     <div className="space-y-8">
@@ -127,33 +135,41 @@ function IncidentsContent({
       />
 
       {error ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {error}
-        </div>
+        <ErrorState
+          message={messageOf(error, "We couldn't load incidents right now. Please try again.")}
+          onRetry={isRetryableError(error) ? load : undefined}
+        />
       ) : null}
 
-      {/* KPI row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KPICard title="Total Incidents" value={metrics?.total ?? "—"} subtitle="all time" icon="📊" />
-        <KPICard
-          title="Open"
-          value={metrics?.status_counts.open ?? 0}
-          subtitle="awaiting action"
-          icon="🟡"
-        />
-        <KPICard
-          title="In Progress"
-          value={metrics?.status_counts.in_progress ?? 0}
-          subtitle="being worked"
-          icon="🔵"
-        />
-        <KPICard
-          title="Avg. Satisfaction"
-          value={metrics?.avg_satisfaction_score != null ? metrics.avg_satisfaction_score.toFixed(2) : "—"}
-          subtitle={`avg. resolution ${formatSeconds(metrics?.avg_resolution_seconds ?? null)}`}
-          icon="⭐"
-        />
-      </div>
+      {/* KPI row — staff-only; a non-staff role simply doesn't see it rather
+          than the whole page failing to load over a section it can't use. */}
+      {metricsError ? (
+        isPermissionError(metricsError) ? null : (
+          <ErrorState message={messageOf(metricsError, "We couldn't load incident metrics right now.")} />
+        )
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <KPICard title="Total Incidents" value={metrics?.total ?? "—"} subtitle="all time" icon="📊" />
+          <KPICard
+            title="Open"
+            value={metrics?.status_counts?.open ?? 0}
+            subtitle="awaiting action"
+            icon="🟡"
+          />
+          <KPICard
+            title="In Progress"
+            value={metrics?.status_counts?.in_progress ?? 0}
+            subtitle="being worked"
+            icon="🔵"
+          />
+          <KPICard
+            title="Avg. Satisfaction"
+            value={metrics?.avg_satisfaction_score != null ? metrics.avg_satisfaction_score.toFixed(2) : "—"}
+            subtitle={`avg. resolution ${formatSeconds(metrics?.avg_resolution_seconds ?? null)}`}
+            icon="⭐"
+          />
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap items-end gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -221,49 +237,50 @@ function IncidentsContent({
           <FileDropzone onFileLoaded={handleFileLoaded} loading={isAnalyzing} />
 
           {analyzeError ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {analyzeError}
-            </div>
+            <ErrorState
+              message={messageOf(analyzeError, "We couldn't analyze that CSV. Please check the file and try again.")}
+            />
           ) : null}
 
           {analysis ? <AnalysisSummaryView analysis={analysis} /> : null}
         </div>
       ) : null}
 
-      {/* List */}
+      {/* List — loading / fulfilled; the error state is shown above with a retry action */}
       {isLoading ? (
         <div className="rounded-xl border border-gray-200 bg-white p-12 text-center text-sm text-gray-400">
           Loading incidents…
         </div>
-      ) : (
+      ) : !error ? (
         <>
-          <p className="text-sm text-gray-500">{total} incident{total === 1 ? "" : "s"}</p>
-          <IncidentsTable incidents={incidents} />
+          <p className="text-sm text-gray-500">{total ?? 0} incident{total === 1 ? "" : "s"}</p>
+          <IncidentsTable incidents={incidents ?? []} />
         </>
-      )}
+      ) : null}
     </div>
   );
 }
 
 function AnalysisSummaryView({ analysis }: { analysis: AnalyzeSummary }) {
+  const invalidBreakdown = analysis?.invalid_breakdown ?? [];
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
       <h3 className="mb-4 text-lg font-semibold text-gray-900">Import Results</h3>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Stat label="Total rows" value={analysis.total_records} />
-        <Stat label="Valid" value={analysis.valid_records} tone="text-emerald-600" />
-        <Stat label="Invalid" value={analysis.invalid_records} tone="text-red-500" />
-        <Stat label="Persisted" value={analysis.persisted_records} tone="text-brasa-brown" />
+        <Stat label="Total rows" value={analysis?.total_records ?? 0} />
+        <Stat label="Valid" value={analysis?.valid_records ?? 0} tone="text-emerald-600" />
+        <Stat label="Invalid" value={analysis?.invalid_records ?? 0} tone="text-red-500" />
+        <Stat label="Persisted" value={analysis?.persisted_records ?? 0} tone="text-brasa-brown" />
       </div>
-      {analysis.note ? (
+      {analysis?.note ? (
         <p className="mt-4 text-sm font-medium text-amber-700">{analysis.note}</p>
       ) : null}
-      {analysis.invalid_breakdown.length > 0 ? (
+      {invalidBreakdown.length > 0 ? (
         <div className="mt-4 space-y-1">
-          {analysis.invalid_breakdown.map((r) => (
-            <div key={r.rule} className="flex justify-between text-sm text-gray-600">
-              <span>{r.label}</span>
-              <span className="font-semibold text-red-500">{r.count}</span>
+          {invalidBreakdown.map((r) => (
+            <div key={r?.rule ?? r?.label} className="flex justify-between text-sm text-gray-600">
+              <span>{r?.label ?? "Unknown rule"}</span>
+              <span className="font-semibold text-red-500">{r?.count ?? 0}</span>
             </div>
           ))}
         </div>

@@ -8,6 +8,12 @@ import type {
   IncidentUpdateInput,
 } from "./incidents";
 import { authenticatedFetch } from "./authenticated-fetch";
+import {
+  ACCESS_DENIED_ACTION_MESSAGE,
+  ACCESS_DENIED_MESSAGE,
+  ACTION_UNAVAILABLE_MESSAGE,
+  ApiError,
+} from "./api-error";
 
 export interface FetchIncidentsParams {
   page?: number;
@@ -19,9 +25,28 @@ export interface FetchIncidentsParams {
   origin?: string;
 }
 
-async function parseErrorDetail(res: Response, fallback: string): Promise<string> {
+/** Build a clean, user-friendly error for a failed response — never a raw
+ * status code or stack trace. 403 always gets the "wrong role" message
+ * regardless of the backend's detail text, since no amount of retrying
+ * changes what a role is allowed to do. */
+async function buildApiError(
+  res: Response,
+  fallback: string,
+  options?: { notFound?: string; forbidden?: string },
+): Promise<ApiError> {
+  if (res.status === 403) {
+    return new ApiError(options?.forbidden ?? ACCESS_DENIED_MESSAGE, 403);
+  }
+  if (res.status === 405) {
+    return new ApiError(ACTION_UNAVAILABLE_MESSAGE, 405);
+  }
+  if (res.status === 404 && options?.notFound) {
+    return new ApiError(options.notFound, 404);
+  }
   const body = await res.json().catch(() => null);
-  return body?.detail ?? fallback;
+  const detail = body?.detail;
+  const message = typeof detail === "string" && detail.trim() ? detail : fallback;
+  return new ApiError(message, res.status);
 }
 
 export async function fetchIncidents(
@@ -43,9 +68,15 @@ export async function fetchIncidents(
   });
 
   if (!res.ok) {
-    throw new Error(await parseErrorDetail(res, `Failed to fetch incidents (${res.status})`));
+    throw await buildApiError(res, "We couldn't load incidents right now. Please try again.");
   }
-  return (await res.json()) as IncidentsListResponse;
+  const json = await res.json().catch(() => null);
+  return {
+    data: json?.data ?? [],
+    total: json?.total ?? 0,
+    page: json?.page ?? params.page ?? 1,
+    limit: json?.limit ?? params.limit ?? 20,
+  } satisfies IncidentsListResponse;
 }
 
 export async function fetchIncident(id: string): Promise<Incident> {
@@ -55,7 +86,9 @@ export async function fetchIncident(id: string): Promise<Incident> {
   });
 
   if (!res.ok) {
-    throw new Error(await parseErrorDetail(res, `Incident not found (${res.status})`));
+    throw await buildApiError(res, "We couldn't load this incident. Please try again.", {
+      notFound: "We couldn't find this incident. It may have been removed.",
+    });
   }
   return (await res.json()) as Incident;
 }
@@ -68,7 +101,9 @@ export async function createIncident(payload: IncidentCreateInput): Promise<Inci
   });
 
   if (!res.ok) {
-    throw new Error(await parseErrorDetail(res, `Failed to create incident (${res.status})`));
+    throw await buildApiError(res, "We couldn't log this incident. Please check the details and try again.", {
+      forbidden: ACCESS_DENIED_ACTION_MESSAGE,
+    });
   }
   return (await res.json()) as Incident;
 }
@@ -84,7 +119,9 @@ export async function updateIncident(
   });
 
   if (!res.ok) {
-    throw new Error(await parseErrorDetail(res, `Failed to update incident (${res.status})`));
+    throw await buildApiError(res, "We couldn't save these changes. Please try again.", {
+      forbidden: ACCESS_DENIED_ACTION_MESSAGE,
+    });
   }
   return (await res.json()) as Incident;
 }
@@ -100,22 +137,24 @@ export async function updateIncidentStatus(
   });
 
   if (!res.ok) {
-    throw new Error(await parseErrorDetail(res, `Failed to update status (${res.status})`));
+    throw await buildApiError(res, "We couldn't update this incident's status. Please try again.", {
+      forbidden: ACCESS_DENIED_ACTION_MESSAGE,
+    });
   }
   return (await res.json()) as Incident;
 }
 
-export async function fetchIncidentMetrics(): Promise<IncidentMetrics> {
+export async function fetchIncidentMetrics(): Promise<IncidentMetrics | null> {
   const res = await authenticatedFetch("/api/proxy/incidents/metrics", {
     cache: "no-store",
     headers: { accept: "application/json" },
   });
 
   if (!res.ok) {
-    throw new Error(await parseErrorDetail(res, `Failed to fetch metrics (${res.status})`));
+    throw await buildApiError(res, "We couldn't load incident metrics right now.");
   }
-  const json = await res.json();
-  return json.data as IncidentMetrics;
+  const json = await res.json().catch(() => null);
+  return (json?.data ?? null) as IncidentMetrics;
 }
 
 export async function analyzeIncidentsCsv(file: File): Promise<AnalyzeSummary> {
@@ -128,8 +167,10 @@ export async function analyzeIncidentsCsv(file: File): Promise<AnalyzeSummary> {
   });
 
   if (!res.ok) {
-    throw new Error(await parseErrorDetail(res, `Failed to analyze CSV (${res.status})`));
+    throw await buildApiError(res, "We couldn't analyze that CSV. Please check the file and try again.", {
+      forbidden: ACCESS_DENIED_ACTION_MESSAGE,
+    });
   }
-  const json = await res.json();
-  return json.data as AnalyzeSummary;
+  const json = await res.json().catch(() => null);
+  return json?.data as AnalyzeSummary;
 }

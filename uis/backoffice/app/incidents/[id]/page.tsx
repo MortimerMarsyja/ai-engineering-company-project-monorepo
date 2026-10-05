@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import BackLink from "@/components/BackLink";
 import PageHeader from "@/components/PageHeader";
+import PageSkeleton from "@/components/PageSkeleton";
 import InfoRow from "@/components/InfoRow";
 import Badge from "@/components/Badge";
 import Toast from "@/components/Toast";
+import ErrorState from "@/components/ErrorState";
+import { isRetryableError } from "@/lib/api-error";
 import { fetchIncident, updateIncidentStatus } from "@/lib/incidents-api";
 import {
   CATEGORY_LABELS,
@@ -19,37 +22,45 @@ import {
   type IncidentStatus,
 } from "@/lib/incidents";
 
+function formatDateSafe(value: string | null | undefined): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString();
+}
+
 export default function IncidentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [incident, setIncident] = useState<Incident | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<unknown>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [scoreInput, setScoreInput] = useState("");
   const [toast, setToast] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      setIsLoading(true);
-      setError("");
-      try {
-        const data = await fetchIncident(id);
-        setIncident(data);
-        if (data.satisfaction_score != null) setScoreInput(String(data.satisfaction_score));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load incident.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
+  const load = useCallback(async () => {
+    if (!id) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await fetchIncident(id);
+      setIncident(data);
+      if (data?.satisfaction_score != null) setScoreInput(String(data.satisfaction_score));
+    } catch (err) {
+      setError(err);
+    } finally {
+      setIsLoading(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const transitionTo = async (status: IncidentStatus) => {
     if (!incident) return;
 
     if (status === "resolved" && incident.satisfaction_score == null && !scoreInput) {
-      setToast({ kind: "error", message: "Enter a satisfaction score (1-5) before resolving." });
+      setToast({ kind: "error", message: "Please enter a satisfaction score (1-5) before resolving this incident." });
       return;
     }
 
@@ -60,30 +71,48 @@ export default function IncidentDetailPage() {
         satisfaction_score: scoreInput ? Number(scoreInput) : undefined,
       });
       setIncident(updated);
-      setToast({ kind: "success", message: `Incident marked as ${STATUS_LABELS[status]}.` });
+      setToast({ kind: "success", message: `Incident marked as ${STATUS_LABELS[status] ?? status}.` });
     } catch (err) {
-      setToast({ kind: "error", message: err instanceof Error ? err.message : "Failed to update status." });
+      setToast({
+        kind: "error",
+        message: err instanceof Error ? err.message : "We couldn't update this incident's status. Please try again.",
+      });
     } finally {
       setIsTransitioning(false);
     }
   };
 
+  // ── Loading ──────────────────────────────────────────────
   if (isLoading) {
-    return <p className="text-sm text-gray-400">Loading incident…</p>;
+    return (
+      <PageSkeleton loading>
+        <div className="space-y-6">
+          <BackLink href="/incidents">Back to Incident Manager</BackLink>
+          <PageHeader title="Loading incident…" />
+          <div className="h-48 rounded-xl border border-gray-200 bg-white shadow-sm" />
+        </div>
+      </PageSkeleton>
+    );
   }
 
+  // ── Rejected ─────────────────────────────────────────────
   if (error || !incident) {
     return (
       <div className="space-y-4">
         <BackLink href="/incidents">Back to Incident Manager</BackLink>
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {error || "Incident not found."}
-        </div>
+        <ErrorState
+          message={error instanceof Error ? error.message : "We couldn't find this incident."}
+          onRetry={isRetryableError(error) ? load : undefined}
+          backHref="/incidents"
+          backLabel="Back to Incident Manager"
+        />
       </div>
     );
   }
 
-  const nextStatuses = STATUS_TRANSITIONS[incident.status];
+  // ── Fulfilled ────────────────────────────────────────────
+  const status = incident.status ?? "open";
+  const nextStatuses = STATUS_TRANSITIONS[status] ?? [];
 
   return (
     <div className="space-y-6">
@@ -91,27 +120,27 @@ export default function IncidentDetailPage() {
       <BackLink href="/incidents">Back to Incident Manager</BackLink>
 
       <PageHeader
-        title={incident.title}
+        title={incident.title ?? "Untitled incident"}
         actions={
-          <Badge label={STATUS_LABELS[incident.status]} className={`border ${STATUS_COLORS[incident.status]}`}>
-            {STATUS_ICONS[incident.status]} {STATUS_LABELS[incident.status]}
+          <Badge label={STATUS_LABELS[status] ?? status} className={`border ${STATUS_COLORS[status] ?? ""}`}>
+            {STATUS_ICONS[status] ?? ""} {STATUS_LABELS[status] ?? status}
           </Badge>
         }
       />
 
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
         <dl className="divide-y divide-gray-100">
-          <InfoRow label="Description">{incident.description}</InfoRow>
-          <InfoRow label="Category">{CATEGORY_LABELS[incident.category] ?? incident.category}</InfoRow>
-          <InfoRow label="Origin">{ORIGIN_LABELS[incident.origin]}</InfoRow>
-          <InfoRow label="Branch">{incident.branch}</InfoRow>
+          <InfoRow label="Description">{incident.description || "—"}</InfoRow>
+          <InfoRow label="Category">{CATEGORY_LABELS[incident.category] ?? incident.category ?? "—"}</InfoRow>
+          <InfoRow label="Origin">{ORIGIN_LABELS[incident.origin] ?? incident.origin ?? "—"}</InfoRow>
+          <InfoRow label="Branch">{incident.branch || "—"}</InfoRow>
           {incident.customer_id ? <InfoRow label="Customer ID">{incident.customer_id}</InfoRow> : null}
           {incident.reporter_id ? <InfoRow label="Reporter ID">{incident.reporter_id}</InfoRow> : null}
           <InfoRow label="Satisfaction score">
             {incident.satisfaction_score != null ? `${incident.satisfaction_score} / 5` : "—"}
           </InfoRow>
-          <InfoRow label="Logged">{new Date(incident.created_at).toLocaleString()}</InfoRow>
-          <InfoRow label="Last updated">{new Date(incident.updated_at).toLocaleString()}</InfoRow>
+          <InfoRow label="Logged">{formatDateSafe(incident.created_at)}</InfoRow>
+          <InfoRow label="Last updated">{formatDateSafe(incident.updated_at)}</InfoRow>
         </dl>
       </div>
 
@@ -134,15 +163,15 @@ export default function IncidentDetailPage() {
           ) : null}
 
           <div className="flex gap-3">
-            {nextStatuses.map((status) => (
+            {nextStatuses.map((nextStatus) => (
               <button
-                key={status}
+                key={nextStatus}
                 type="button"
                 disabled={isTransitioning}
-                onClick={() => transitionTo(status)}
+                onClick={() => transitionTo(nextStatus)}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
               >
-                {STATUS_ICONS[status]} Mark as {STATUS_LABELS[status]}
+                {STATUS_ICONS[nextStatus] ?? ""} Mark as {STATUS_LABELS[nextStatus] ?? nextStatus}
               </button>
             ))}
           </div>

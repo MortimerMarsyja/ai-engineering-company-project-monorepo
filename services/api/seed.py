@@ -157,44 +157,46 @@ INITIAL_SUPPLIERS: list[dict] = [
 
 def seed() -> None:
     """Insert initial suppliers into TinyDB, skipping duplicates by email."""
-    db = TinyDB(DB_PATH)
-    suppliers_table = db.table("suppliers")
+    try:
+        with TinyDB(DB_PATH) as db:
+            suppliers_table = db.table("suppliers")
 
-    existing_emails: set[str] = {
-        doc["email"] for doc in suppliers_table.all()
-    }
+            existing_emails: set[str] = {
+                doc["email"] for doc in suppliers_table.all()
+            }
 
-    inserted = 0
-    skipped = 0
+            inserted = 0
+            skipped = 0
 
-    now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(timezone.utc).isoformat()
 
-    for supplier in INITIAL_SUPPLIERS:
-        if supplier["email"] in existing_emails:
-            skipped += 1
-            print(f"  ⏭  Skipped (duplicate): {supplier['full_name']} <{supplier['email']}>")
-            continue
+            for supplier in INITIAL_SUPPLIERS:
+                if supplier["email"] in existing_emails:
+                    skipped += 1
+                    print(f"  ⏭  Skipped (duplicate): {supplier['full_name']} <{supplier['email']}>")
+                    continue
 
-        suppliers_table.insert({
-            **supplier,
-            "created_at": now,
-            "updated_at": now,
-        })
-        existing_emails.add(supplier["email"])
-        inserted += 1
-        print(f"  ✅ Inserted: {supplier['full_name']} <{supplier['email']}>")
+                suppliers_table.insert({
+                    **supplier,
+                    "created_at": now,
+                    "updated_at": now,
+                })
+                existing_emails.add(supplier["email"])
+                inserted += 1
+                print(f"  ✅ Inserted: {supplier['full_name']} <{supplier['email']}>")
 
-    total_in_db = len(suppliers_table)
+            total_in_db = len(suppliers_table)
 
-    print()
-    print("─" * 50)
-    print(f"  📊 Summary")
-    print(f"     Inserted : {inserted}")
-    print(f"     Skipped  : {skipped}")
-    print(f"     Total in DB: {total_in_db}")
-    print("─" * 50)
-
-    db.close()
+            print()
+            print("─" * 50)
+            print(f"  📊 Summary")
+            print(f"     Inserted : {inserted}")
+            print(f"     Skipped  : {skipped}")
+            print(f"     Total in DB: {total_in_db}")
+            print("─" * 50)
+    except OSError as exc:
+        print(f"❌ Could not write to the database at {DB_PATH}: {exc}", file=sys.stderr)
+        sys.exit(1)
 
 
 def main() -> None:

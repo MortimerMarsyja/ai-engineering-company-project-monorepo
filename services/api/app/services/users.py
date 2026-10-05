@@ -51,75 +51,65 @@ def create_user(payload: UserCreate) -> dict:
     The role defaults to ``user`` (see UserCreate). Raises ValueError if
     the email is already registered.
     """
-    db = _get_db()
-    users = db.table(USERS_TABLE)
+    with _get_db() as db:
+        users = db.table(USERS_TABLE)
 
-    if users.search(where("email") == payload.email):
-        db.close()
-        raise ValueError(f"A user with email '{payload.email}' already exists.")
+        if users.search(where("email") == payload.email):
+            raise ValueError(f"A user with email '{payload.email}' already exists.")
 
-    now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
-    user_id = users.insert(
-        {
-            "email": payload.email,
-            "hashed_password": hash_password(payload.password),
-            "is_active": True,
-            "role": payload.role.value,
-            "created_at": now,
-        }
-    )
+        user_id = users.insert(
+            {
+                "email": payload.email,
+                "hashed_password": hash_password(payload.password),
+                "is_active": True,
+                "role": payload.role.value,
+                "created_at": now,
+            }
+        )
 
-    # Linked profile — created in the same operation (one-to-one via
-    # user_id). Name/phone/address live here, never on the user document.
-    profiles_service.create_profile(
-        user_id,
-        name=payload.name,
-        phone=payload.phone,
-        address=payload.address,
-    )
+        # Linked profile — created in the same operation (one-to-one via
+        # user_id). Name/phone/address live here, never on the user document.
+        profiles_service.create_profile(
+            user_id,
+            name=payload.name,
+            phone=payload.phone,
+            address=payload.address,
+        )
 
-    doc = users.get(doc_id=user_id)
-    profile = profiles_service.get_profile_by_user_id(user_id)
-    db.close()
-    return _build_user_response(doc, profile)
+        doc = users.get(doc_id=user_id)
+        profile = profiles_service.get_profile_by_user_id(user_id)
+        return _build_user_response(doc, profile)
 
 
 def list_users() -> list[dict]:
     """Return every user with its linked profile."""
-    db = _get_db()
-    users = db.table(USERS_TABLE)
-
-    result = [
-        _build_user_response(doc, profiles_service.get_profile_by_user_id(doc.doc_id))
-        for doc in users.all()
-    ]
-    db.close()
-    return result
+    with _get_db() as db:
+        return [
+            _build_user_response(doc, profiles_service.get_profile_by_user_id(doc.doc_id))
+            for doc in db.table(USERS_TABLE).all()
+        ]
 
 
 def get_user_by_id(user_id: int) -> dict | None:
     """Return a single user (with profile) by id, or None."""
-    db = _get_db()
-    doc = db.table(USERS_TABLE).get(doc_id=user_id)
-    if doc is None:
-        db.close()
-        return None
-    profile = profiles_service.get_profile_by_user_id(user_id)
-    db.close()
-    return _build_user_response(doc, profile)
+    with _get_db() as db:
+        doc = db.table(USERS_TABLE).get(doc_id=user_id)
+        if doc is None:
+            return None
+        profile = profiles_service.get_profile_by_user_id(user_id)
+        return _build_user_response(doc, profile)
 
 
 def get_user_by_email(email: str) -> dict | None:
     """Return a single user (with profile) by email, or None."""
-    db = _get_db()
-    doc = db.table(USERS_TABLE).get(where("email") == email)
-    if doc is None:
-        db.close()
-        return None
-    profile = profiles_service.get_profile_by_user_id(doc.doc_id)
-    db.close()
-    return _build_user_response(doc, profile)
+    with _get_db() as db:
+        doc = db.table(USERS_TABLE).get(where("email") == email)
+        if doc is None:
+            return None
+        profile = profiles_service.get_profile_by_user_id(doc.doc_id)
+        return _build_user_response(doc, profile)
 
 
 def get_user_credentials(email: str) -> dict | None:
@@ -127,10 +117,8 @@ def get_user_credentials(email: str) -> dict | None:
 
     Used by the login flow to verify credentials. Not exposed via REST.
     """
-    db = _get_db()
-    doc = db.table(USERS_TABLE).get(where("email") == email)
-    db.close()
-    return doc
+    with _get_db() as db:
+        return db.table(USERS_TABLE).get(where("email") == email)
 
 
 def update_user(user_id: int, payload: UserUpdate) -> dict | None:
@@ -140,50 +128,45 @@ def update_user(user_id: int, payload: UserUpdate) -> dict | None:
     re-hashed before storage. Raises ValueError on duplicate email.
     Returns None if the user does not exist.
     """
-    db = _get_db()
-    users = db.table(USERS_TABLE)
+    with _get_db() as db:
+        users = db.table(USERS_TABLE)
 
-    doc = users.get(doc_id=user_id)
-    if doc is None:
-        db.close()
-        return None
+        doc = users.get(doc_id=user_id)
+        if doc is None:
+            return None
 
-    data = payload.model_dump(exclude_unset=True)
+        data = payload.model_dump(exclude_unset=True)
 
-    # Enum → stored string value
-    if "role" in data and isinstance(data["role"], UserRole):
-        data["role"] = data["role"].value
+        # Enum → stored string value
+        if "role" in data and isinstance(data["role"], UserRole):
+            data["role"] = data["role"].value
 
-    if "email" in data and data["email"] != doc["email"]:
-        if users.search(where("email") == data["email"]):
-            db.close()
-            raise ValueError(f"A user with email '{data['email']}' already exists.")
+        if "email" in data and data["email"] != doc["email"]:
+            if users.search(where("email") == data["email"]):
+                raise ValueError(f"A user with email '{data['email']}' already exists.")
 
-    if "password" in data and data["password"] is not None:
-        data["hashed_password"] = hash_password(data.pop("password"))
+        if "password" in data and data["password"] is not None:
+            data["hashed_password"] = hash_password(data.pop("password"))
 
-    users.update(data, doc_ids=[user_id])
+        users.update(data, doc_ids=[user_id])
 
-    new_doc = users.get(doc_id=user_id)
-    profile = profiles_service.get_profile_by_user_id(user_id)
-    db.close()
-    return _build_user_response(new_doc, profile)
+        new_doc = users.get(doc_id=user_id)
+        profile = profiles_service.get_profile_by_user_id(user_id)
+        return _build_user_response(new_doc, profile)
 
 
 def delete_user(user_id: int) -> bool:
     """Delete a user and its linked profile. Returns False if not found."""
-    db = _get_db()
-    users = db.table(USERS_TABLE)
+    with _get_db() as db:
+        users = db.table(USERS_TABLE)
 
-    if users.get(doc_id=user_id) is None:
-        db.close()
-        return False
+        if users.get(doc_id=user_id) is None:
+            return False
 
-    users.remove(doc_ids=[user_id])
-    # Cascade: remove the linked profile (one-to-one via user_id)
-    profiles_service.delete_profile_by_user_id(user_id)
-    db.close()
-    return True
+        users.remove(doc_ids=[user_id])
+        # Cascade: remove the linked profile (one-to-one via user_id)
+        profiles_service.delete_profile_by_user_id(user_id)
+        return True
 
 
 def authenticate(email: str, password: str) -> dict | None:

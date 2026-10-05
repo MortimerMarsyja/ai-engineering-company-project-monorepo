@@ -74,10 +74,12 @@ export default function IncidentForm() {
         reporter_id: form.reporter_id.trim() || undefined,
       });
       setToast({ kind: "success", message: "Incident logged successfully." });
-      router.push(`/incidents/${incident.id}`);
-      router.refresh();
+      if (incident?.id) {
+        router.push(`/incidents/${incident.id}`);
+        router.refresh();
+      }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to log incident.";
+      const message = err instanceof Error ? err.message : "We couldn't log this incident. Please try again.";
       setToast({ kind: "error", message });
     } finally {
       setIsSubmitting(false);

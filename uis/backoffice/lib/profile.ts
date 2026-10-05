@@ -75,6 +75,14 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     return (payload as ApiEnvelope<T>).data;
   }
 
+  if (response.status === 403) {
+    // Wrong role, not a transient failure — retrying changes nothing.
+    throw new ProfileRequestError(
+      "You do not have access rights to load this resource with your current role.",
+      403,
+    );
+  }
+
   const errorPayload = payload as ApiErrorPayload;
   const fieldErrors: Record<string, string> = {};
 

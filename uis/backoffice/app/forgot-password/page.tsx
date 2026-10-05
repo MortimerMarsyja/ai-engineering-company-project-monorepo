@@ -3,14 +3,38 @@
 import { useState } from "react";
 import AuthPanel from "@/components/AuthPanel";
 import FormField from "@/components/FormField";
+import ErrorState from "@/components/ErrorState";
 import { requestPasswordReset } from "@/lib/auth";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function ForgotPasswordPage() {
   const [emailError, setEmailError] = useState("");
+  const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [lastEmail, setLastEmail] = useState("");
+
+  async function submit(email: string) {
+    setEmailError("");
+    setSubmitError("");
+    setIsSubmitting(true);
+    try {
+      await requestPasswordReset(email);
+      // The backend intentionally always reports success here (so an
+      // attacker can't probe which emails have accounts) — only a genuine
+      // failure (network/server error) should land in the catch below.
+      setIsSubmitted(true);
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error
+          ? err.message
+          : "We couldn't send the reset email right now. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -21,14 +45,8 @@ export default function ForgotPasswordPage() {
       return;
     }
 
-    setEmailError("");
-    setIsSubmitting(true);
-    try {
-      await requestPasswordReset(email);
-    } finally {
-      setIsSubmitting(false);
-      setIsSubmitted(true);
-    }
+    setLastEmail(email);
+    await submit(email);
   }
 
   return (
@@ -48,6 +66,12 @@ export default function ForgotPasswordPage() {
         </div>
       ) : (
         <form className="space-y-4" noValidate onSubmit={handleSubmit}>
+          {submitError ? (
+            <ErrorState
+              message={submitError}
+              onRetry={lastEmail ? () => submit(lastEmail) : undefined}
+            />
+          ) : null}
           <FormField
             id="forgot-email"
             name="email"

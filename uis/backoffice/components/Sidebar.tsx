@@ -51,6 +51,7 @@ const navigation = [
 export default function Sidebar() {
   const pathname = usePathname();
   const [account, setAccount] = useState<SidebarAccount | null>(null);
+  const [accountFailed, setAccountFailed] = useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -58,9 +59,18 @@ export default function Sidebar() {
     const loadAccount = () => {
       getCurrentAccount()
         .then((currentAccount) => {
-          if (isActive) setAccount(currentAccount);
+          if (!isActive) return;
+          setAccount(currentAccount);
+          setAccountFailed(false);
         })
-        .catch(() => undefined);
+        .catch(() => {
+          if (!isActive) return;
+          // Intentionally no console.error with the raw error object here —
+          // it could carry response internals we don't want surfaced even
+          // to the browser devtools console. The UI fallback below is the
+          // user-facing signal; that's enough for this non-critical widget.
+          setAccountFailed(true);
+        });
     };
 
     loadAccount();
@@ -72,9 +82,9 @@ export default function Sidebar() {
     };
   }, []);
 
-  const displayName = account?.profile.name?.trim() || account?.email || "Account";
-  const email = account?.email ?? "Loading...";
-  const initials = getInitials(account?.profile.name?.trim() ?? "", account?.email ?? "");
+  const displayName = account?.profile?.name?.trim() || account?.email || "Account";
+  const email = account?.email ?? (accountFailed ? "Unavailable" : "Loading…");
+  const initials = getInitials(account?.profile?.name?.trim() ?? "", account?.email ?? "");
 
   return (
     <aside

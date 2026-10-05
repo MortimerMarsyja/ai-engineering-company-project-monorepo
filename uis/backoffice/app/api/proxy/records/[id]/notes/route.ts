@@ -5,13 +5,13 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  return proxyAuthenticated(request, `/suppliers/${id}`, "GET");
+  return proxyAuthenticated(request, `/records/${id}/notes`, "GET");
 }
 
-export async function DELETE(
+export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  return proxyAuthenticated(request, `/suppliers/${id}`, "DELETE");
+  return proxyAuthenticated(request, `/records/${id}/notes`, "POST");
 }

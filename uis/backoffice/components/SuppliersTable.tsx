@@ -67,6 +67,7 @@ function SupplierRow({
   const [editingRate, setEditingRate] = useState(false);
   const [rateValue, setRateValue] = useState(String(supplier.rate));
   const [rateError, setRateError] = useState("");
+  const [statusError, setStatusError] = useState("");
   const [isPending, startTransition] = useTransition();
 
   function handleRateSave() {
@@ -82,9 +83,10 @@ function SupplierRow({
       try {
         const updated = await updateSupplierRate(supplier.id, num);
         onSupplierUpdated(updated);
-      } catch {
+      } catch (err) {
         setRateValue(String(supplier.rate));
         setEditingRate(true);
+        setRateError(err instanceof Error ? err.message : "We couldn't save this rate. Please try again.");
       }
     });
   }
@@ -93,12 +95,15 @@ function SupplierRow({
     const next: SupplierStatus =
       supplier.status === "active" ? "suspended" : "active";
 
+    setStatusError("");
     startTransition(async () => {
       try {
         const updated = await updateSupplierStatus(supplier.id, next);
         onSupplierUpdated(updated);
-      } catch {
-        // revert silently — UI stays on old status
+      } catch (err) {
+        // Revert happens naturally — we never applied the optimistic update —
+        // but the user still needs to know the toggle didn't take effect.
+        setStatusError(err instanceof Error ? err.message : "We couldn't update this supplier's status. Please try again.");
       }
     });
   }
@@ -210,6 +215,9 @@ function SupplierRow({
             />
           </button>
         </div>
+        {statusError && (
+          <span className="mt-1 block max-w-[10rem] text-xs text-rose-600">{statusError}</span>
+        )}
       </td>
 
       {/* Actions */}

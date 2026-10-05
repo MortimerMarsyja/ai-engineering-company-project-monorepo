@@ -14,6 +14,7 @@ PATCH  /incidents/{id}/status    transition an incident's lifecycle status
 from __future__ import annotations
 
 import io
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
@@ -38,6 +39,8 @@ from app.services.incidents import (
     update_incident,
     update_incident_status,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
@@ -132,19 +135,23 @@ async def analyze_incidents(
             status_code=422,
             detail="File encoding error. Please upload a UTF-8 encoded CSV file.",
         )
-    except Exception as exc:
+    except Exception:
+        # Anything else from csv.DictReader (malformed quoting, etc.) — log
+        # the real cause server-side, never echo it back to the client.
+        logger.exception("Unexpected error while parsing uploaded incidents CSV")
         raise HTTPException(
             status_code=422,
-            detail=f"Could not read the CSV file: {exc}",
+            detail="Could not read the CSV file. Please check the format and try again.",
         )
 
     # ── Analyse + persist ───────────────────────────────────
     try:
         results = analyze(rows)
-    except Exception as exc:
+    except Exception:
+        logger.exception("Unexpected error while analyzing incidents CSV")
         raise HTTPException(
             status_code=500,
-            detail=f"Analysis failed: {exc}",
+            detail="Something went wrong analyzing this file. Please try again.",
         )
 
     # Cache results for the export endpoint

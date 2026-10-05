@@ -2,12 +2,14 @@
 
 import PageSkeleton, { usePageLoading } from "@/components/PageSkeleton";
 import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { fetchCandidates } from "@/lib/api";
 import CandidateFilters from "@/components/CandidateFilters";
 import CandidatesTable from "@/components/CandidatesTable";
+import ErrorState from "@/components/ErrorState";
 import PageHeader from "@/components/PageHeader";
+import { isRetryableError } from "@/lib/api-error";
 import {
   isCandidateStatus,
   isCandidateStage,
@@ -37,46 +39,45 @@ function HiringContent({ searchParams }: { searchParams: Pick<URLSearchParams, "
   const sessionLoading = usePageLoading();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<unknown>(null);
+
+  const loadCandidates = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    const search = searchParams.get("search") ?? "";
+    const statusesRaw = searchParams.getAll("status");
+    const stagesRaw = searchParams.getAll("stage");
+
+    const statuses: CandidateStatus[] | undefined = statusesRaw.length
+      ? statusesRaw.filter(isCandidateStatus)
+      : undefined;
+
+    const stages: CandidateStage[] | undefined = stagesRaw.length
+      ? stagesRaw.filter(isCandidateStage)
+      : undefined;
+
+    try {
+      const res = await fetchCandidates({
+        page: 1,
+        limit: 100,
+        search: search || undefined,
+        statuses: statuses?.length ? statuses : undefined,
+        stages: stages?.length ? stages : undefined,
+      });
+
+      setCandidates(res?.data ?? []);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (sessionLoading) return;
-    const loadCandidates = async () => {
-      setIsLoading(true);
-      setError("");
-
-      const search = searchParams.get("search") ?? "";
-      const statusesRaw = searchParams.getAll("status");
-      const stagesRaw = searchParams.getAll("stage");
-
-      const statuses: CandidateStatus[] | undefined = statusesRaw.length
-        ? statusesRaw.filter(isCandidateStatus)
-        : undefined;
-
-      const stages: CandidateStage[] | undefined = stagesRaw.length
-        ? stagesRaw.filter(isCandidateStage)
-        : undefined;
-
-      try {
-        const res = await fetchCandidates({
-          page: 1,
-          limit: 100,
-          search: search || undefined,
-          statuses: statuses?.length ? statuses : undefined,
-          stages: stages?.length ? stages : undefined,
-        });
-
-        setCandidates(res.data);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to load candidates.";
-        setError(message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     loadCandidates();
-  }, [searchParams, sessionLoading]);
+  }, [sessionLoading, loadCandidates]);
 
   return (
     <PageSkeleton loading={isLoading && !error}>
@@ -107,9 +108,10 @@ function HiringContent({ searchParams }: { searchParams: Pick<URLSearchParams, "
         </div>
 
         {error ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            {error}
-          </div>
+          <ErrorState
+            message={error instanceof Error ? error.message : "We couldn't load candidates right now. Please try again."}
+            onRetry={isRetryableError(error) ? loadCandidates : undefined}
+          />
         ) : candidates.length === 0 && !isLoading ? (
           <div className="rounded-lg border border-dashed border-zinc-300 px-4 py-12 text-center text-sm text-zinc-500">
             No candidates yet.

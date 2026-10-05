@@ -10,21 +10,28 @@ interface FileDropzoneProps {
 export default function FileDropzone({ onFileLoaded, loading }: FileDropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [readError, setReadError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(
     (file: File) => {
       if (!file.name.endsWith(".csv")) {
-        alert("Please upload a CSV file.");
+        setReadError("Please upload a .csv file.");
         return;
       }
+      setReadError(null);
       setFileName(file.name);
       const reader = new FileReader();
       reader.onload = (e) => {
         const text = e.target?.result;
         if (typeof text === "string") {
           onFileLoaded(text, file.name);
+        } else {
+          setReadError("That file appears to be empty or unreadable. Please try another file.");
         }
+      };
+      reader.onerror = () => {
+        setReadError("We couldn't read that file. Please check it isn't open elsewhere and try again.");
       };
       reader.readAsText(file);
     },
@@ -116,6 +123,11 @@ export default function FileDropzone({ onFileLoaded, loading }: FileDropzoneProp
           </>
         )}
       </div>
+      {readError && (
+        <p role="alert" className="px-6 pb-4 text-center text-xs font-medium text-rose-600">
+          {readError}
+        </p>
+      )}
     </div>
   );
 }

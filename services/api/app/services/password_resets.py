@@ -30,49 +30,46 @@ def issue_token(user_id: int) -> str:
     settings = get_settings()
     now = _now()
     raw_token = secrets.token_urlsafe(32)
-    db = TinyDB(_DB_PATH)
-    tokens = db.table(TOKENS_TABLE)
 
-    tokens.update(
-        {"used_at": now.isoformat()},
-        (where("user_id") == user_id) & (where("used_at") == None),  # noqa: E711
-    )
-    tokens.insert(
-        {
-            "user_id": user_id,
-            "token_hash": _hash_token(raw_token),
-            "created_at": now.isoformat(),
-            "expires_at": (
-                now + timedelta(minutes=settings.PASSWORD_RESET_EXPIRE_MINUTES)
-            ).isoformat(),
-            "used_at": None,
-        }
-    )
-    db.close()
+    with TinyDB(_DB_PATH) as db:
+        tokens = db.table(TOKENS_TABLE)
+
+        tokens.update(
+            {"used_at": now.isoformat()},
+            (where("user_id") == user_id) & (where("used_at") == None),  # noqa: E711
+        )
+        tokens.insert(
+            {
+                "user_id": user_id,
+                "token_hash": _hash_token(raw_token),
+                "created_at": now.isoformat(),
+                "expires_at": (
+                    now + timedelta(minutes=settings.PASSWORD_RESET_EXPIRE_MINUTES)
+                ).isoformat(),
+                "used_at": None,
+            }
+        )
     return raw_token
 
 
 def consume_token(token: str, new_password: str) -> bool:
     """Update the user's password if the token is valid, unexpired, and unused."""
-    db = TinyDB(_DB_PATH)
-    tokens = db.table(TOKENS_TABLE)
-    doc = tokens.get(where("token_hash") == _hash_token(token))
+    with TinyDB(_DB_PATH) as db:
+        tokens = db.table(TOKENS_TABLE)
+        doc = tokens.get(where("token_hash") == _hash_token(token))
 
-    if doc is None or doc.get("used_at") is not None:
-        db.close()
-        return False
+        if doc is None or doc.get("used_at") is not None:
+            return False
 
-    expires_at = datetime.fromisoformat(doc["expires_at"])
-    if expires_at <= _now():
-        db.close()
-        return False
+        expires_at = datetime.fromisoformat(doc["expires_at"])
+        if expires_at <= _now():
+            return False
 
-    user_id = doc["user_id"]
-    tokens.update(
-        {"used_at": _now().isoformat()},
-        doc_ids=[doc.doc_id],
-    )
-    db.close()
+        user_id = doc["user_id"]
+        tokens.update(
+            {"used_at": _now().isoformat()},
+            doc_ids=[doc.doc_id],
+        )
 
     updated_user = users_service.update_user(
         user_id,

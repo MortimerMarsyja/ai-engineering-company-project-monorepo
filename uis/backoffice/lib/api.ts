@@ -10,6 +10,12 @@ import type {
   RecordCreate,
 } from "./types";
 import { authenticatedFetch } from "./authenticated-fetch";
+import {
+  ACCESS_DENIED_ACTION_MESSAGE,
+  ACCESS_DENIED_MESSAGE,
+  ACTION_UNAVAILABLE_MESSAGE,
+  ApiError,
+} from "./api-error";
 
 interface FetchCandidatesParams {
   page?: number;
@@ -17,6 +23,29 @@ interface FetchCandidatesParams {
   search?: string;
   statuses?: CandidateStatus[];
   stages?: CandidateStage[];
+}
+
+/** Build a clean, user-friendly error for a failed response — never a raw
+ * status code or stack trace. 403 always gets the "wrong role" message:
+ * no amount of retrying changes what a role is allowed to do. */
+async function buildApiError(
+  res: Response,
+  fallback: string,
+  options?: { notFound?: string; forbidden?: string },
+): Promise<ApiError> {
+  if (res.status === 403) {
+    return new ApiError(options?.forbidden ?? ACCESS_DENIED_MESSAGE, 403);
+  }
+  if (res.status === 405) {
+    return new ApiError(ACTION_UNAVAILABLE_MESSAGE, 405);
+  }
+  if (res.status === 404 && options?.notFound) {
+    return new ApiError(options.notFound, 404);
+  }
+  const body = await res.json().catch(() => null);
+  const detail = body?.detail;
+  const message = typeof detail === "string" && detail.trim() ? detail : fallback;
+  return new ApiError(message, res.status);
 }
 
 export async function fetchCandidates({
@@ -40,12 +69,11 @@ export async function fetchCandidates({
   });
 
   if (!res.ok) {
-    throw new Error(
-      `Failed to fetch candidates: ${res.status} ${res.statusText}`
-    );
+    throw await buildApiError(res, "We couldn't load candidates right now. Please try again.");
   }
 
   let result = (await res.json()) as CandidatesResponse;
+  result.data = result?.data ?? [];
 
   if (statuses && statuses.length > 0) {
     result.data = result.data.filter((c) => statuses.includes(c.status));
@@ -67,9 +95,9 @@ export async function fetchCandidate(id: string): Promise<Candidate> {
   });
 
   if (!res.ok) {
-    throw new Error(
-      `Failed to fetch candidate ${id}: ${res.status} ${res.statusText}`
-    );
+    throw await buildApiError(res, "We couldn't load this candidate. Please try again.", {
+      notFound: "We couldn't find this candidate. It may have been removed.",
+    });
   }
 
   return (await res.json()) as Candidate;
@@ -89,10 +117,9 @@ export async function patchCandidate(
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(
-      `Failed to update candidate ${id}: ${res.status} ${res.statusText}${text ? ` — ${text}` : ""}`,
-    );
+    throw await buildApiError(res, "We couldn't update this candidate. Please try again.", {
+      forbidden: ACCESS_DENIED_ACTION_MESSAGE,
+    });
   }
 
   return (await res.json()) as Candidate;
@@ -105,13 +132,11 @@ export async function fetchNotes(id: string): Promise<CandidateNote[]> {
   });
 
   if (!res.ok) {
-    throw new Error(
-      `Failed to fetch notes for candidate ${id}: ${res.status} ${res.statusText}`,
-    );
+    throw await buildApiError(res, "We couldn't load notes for this candidate.");
   }
 
   const result = (await res.json()) as NotesResponse;
-  return result.data;
+  return result?.data ?? [];
 }
 
 export async function createNote(
@@ -128,10 +153,9 @@ export async function createNote(
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(
-      `Failed to add note for candidate ${id}: ${res.status} ${res.statusText}${text ? ` — ${text}` : ""}`,
-    );
+    throw await buildApiError(res, "We couldn't add this note. Please try again.", {
+      forbidden: ACCESS_DENIED_ACTION_MESSAGE,
+    });
   }
 
   return (await res.json()) as CandidateNote;
@@ -144,9 +168,9 @@ export async function deleteNote(id: string, noteId: string): Promise<void> {
   });
 
   if (!res.ok) {
-    throw new Error(
-      `Failed to delete note ${noteId} for candidate ${id}: ${res.status} ${res.statusText}`,
-    );
+    throw await buildApiError(res, "We couldn't delete this note. Please try again.", {
+      forbidden: ACCESS_DENIED_ACTION_MESSAGE,
+    });
   }
 }
 
@@ -163,10 +187,9 @@ export async function createCandidate(
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(
-      `Failed to create candidate: ${res.status} ${res.statusText}${text ? ` — ${text}` : ""}`,
-    );
+    throw await buildApiError(res, "We couldn't add this candidate. Please check the details and try again.", {
+      forbidden: ACCESS_DENIED_ACTION_MESSAGE,
+    });
   }
 
   return (await res.json()) as Candidate;
@@ -186,10 +209,9 @@ export async function updateCandidate(
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(
-      `Failed to update candidate ${id}: ${res.status} ${res.statusText}${text ? ` — ${text}` : ""}`,
-    );
+    throw await buildApiError(res, "We couldn't save these changes. Please try again.", {
+      forbidden: ACCESS_DENIED_ACTION_MESSAGE,
+    });
   }
 
   return (await res.json()) as Candidate;

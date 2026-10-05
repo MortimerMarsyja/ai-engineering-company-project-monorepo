@@ -67,27 +67,24 @@ async def create_supplier(
     current_user: dict = Depends(require_staff),
 ):
     """Register a new supplier (staff only — manager or admin)."""
-    db = _get_db()
-    table = _get_table(db)
+    with _get_db() as db:
+        table = _get_table(db)
 
-    # Check for duplicate email
-    existing = table.search(where("email") == payload.email)
-    if existing:
-        db.close()
-        raise HTTPException(
-            status_code=409,
-            detail=f"A supplier with email '{payload.email}' already exists.",
-        )
+        # Check for duplicate email
+        if table.search(where("email") == payload.email):
+            raise HTTPException(
+                status_code=409,
+                detail=f"A supplier with email '{payload.email}' already exists.",
+            )
 
-    now = datetime.now(timezone.utc).isoformat()
-    data = payload.model_dump(mode="json")
-    data["date_of_birth"] = str(data["date_of_birth"])
-    data["created_at"] = now
-    data["updated_at"] = now
+        now = datetime.now(timezone.utc).isoformat()
+        data = payload.model_dump(mode="json")
+        data["date_of_birth"] = str(data["date_of_birth"])
+        data["created_at"] = now
+        data["updated_at"] = now
 
-    doc_id = table.insert(data)
-    doc = table.get(doc_id=doc_id)
-    db.close()
+        doc_id = table.insert(data)
+        doc = table.get(doc_id=doc_id)
 
     return ApiResponse(
         message="Supplier registered successfully",
@@ -107,18 +104,14 @@ async def list_suppliers(
     current_user: dict = Depends(require_any_user),
 ):
     """List all suppliers, optionally filtered by product category and/or status."""
-    db = _get_db()
-    table = _get_table(db)
-
-    results = table.all()
+    with _get_db() as db:
+        results = _get_table(db).all()
 
     if product_category is not None:
         results = [doc for doc in results if doc.get("product_category") == product_category]
 
     if status is not None:
         results = [doc for doc in results if doc.get("status") == status.value]
-
-    db.close()
 
     return ApiResponse(
         message=f"Found {len(results)} supplier(s)",
@@ -133,11 +126,8 @@ async def get_supplier(
     current_user: dict = Depends(require_any_user),
 ):
     """Return the detail of a supplier by ID (authenticated)."""
-    db = _get_db()
-    table = _get_table(db)
-
-    doc = table.get(doc_id=supplier_id)
-    db.close()
+    with _get_db() as db:
+        doc = _get_table(db).get(doc_id=supplier_id)
 
     if doc is None:
         raise HTTPException(status_code=404, detail=f"Supplier {supplier_id} not found")
@@ -153,19 +143,17 @@ async def update_supplier_rate(
     current_user: dict = Depends(require_staff),
 ):
     """Update a supplier's rate (staff only). Records updated_at."""
-    db = _get_db()
-    table = _get_table(db)
+    with _get_db() as db:
+        table = _get_table(db)
 
-    doc = table.get(doc_id=supplier_id)
-    if doc is None:
-        db.close()
-        raise HTTPException(status_code=404, detail=f"Supplier {supplier_id} not found")
+        doc = table.get(doc_id=supplier_id)
+        if doc is None:
+            raise HTTPException(status_code=404, detail=f"Supplier {supplier_id} not found")
 
-    now = datetime.now(timezone.utc).isoformat()
-    table.update({"rate": payload.rate, "updated_at": now}, doc_ids=[supplier_id])
+        now = datetime.now(timezone.utc).isoformat()
+        table.update({"rate": payload.rate, "updated_at": now}, doc_ids=[supplier_id])
 
-    updated_doc = table.get(doc_id=supplier_id)
-    db.close()
+        updated_doc = table.get(doc_id=supplier_id)
 
     return ApiResponse(
         message="Supplier rate updated successfully",
@@ -181,21 +169,19 @@ async def update_supplier_status(
     current_user: dict = Depends(require_staff),
 ):
     """Activate or suspend a supplier (staff only)."""
-    db = _get_db()
-    table = _get_table(db)
+    with _get_db() as db:
+        table = _get_table(db)
 
-    doc = table.get(doc_id=supplier_id)
-    if doc is None:
-        db.close()
-        raise HTTPException(status_code=404, detail=f"Supplier {supplier_id} not found")
+        doc = table.get(doc_id=supplier_id)
+        if doc is None:
+            raise HTTPException(status_code=404, detail=f"Supplier {supplier_id} not found")
 
-    now = datetime.now(timezone.utc).isoformat()
-    table.update(
-        {"status": payload.status.value, "updated_at": now}, doc_ids=[supplier_id]
-    )
+        now = datetime.now(timezone.utc).isoformat()
+        table.update(
+            {"status": payload.status.value, "updated_at": now}, doc_ids=[supplier_id]
+        )
 
-    updated_doc = table.get(doc_id=supplier_id)
-    db.close()
+        updated_doc = table.get(doc_id=supplier_id)
 
     return ApiResponse(
         message=f"Supplier status changed to {payload.status.value}",
@@ -210,15 +196,13 @@ async def delete_supplier(
     current_user: dict = Depends(require_staff),
 ):
     """Remove a supplier from the directory (staff only)."""
-    db = _get_db()
-    table = _get_table(db)
+    with _get_db() as db:
+        table = _get_table(db)
 
-    doc = table.get(doc_id=supplier_id)
-    if doc is None:
-        db.close()
-        raise HTTPException(status_code=404, detail=f"Supplier {supplier_id} not found")
+        doc = table.get(doc_id=supplier_id)
+        if doc is None:
+            raise HTTPException(status_code=404, detail=f"Supplier {supplier_id} not found")
 
-    table.remove(doc_ids=[supplier_id])
-    db.close()
+        table.remove(doc_ids=[supplier_id])
 
     return ApiResponse(message=f"Supplier {supplier_id} deleted successfully")

@@ -37,32 +37,29 @@ def create_profile(
 
     Raises ValueError if the user already has a profile.
     """
-    db = _get_db()
-    table = db.table(PROFILES_TABLE)
+    with _get_db() as db:
+        table = db.table(PROFILES_TABLE)
 
-    if table.get(where("user_id") == user_id) is not None:
-        db.close()
-        raise ValueError(f"User {user_id} already has a profile")
+        if table.get(where("user_id") == user_id) is not None:
+            raise ValueError(f"User {user_id} already has a profile")
 
-    doc_id = table.insert(
-        {
-            "user_id": user_id,
-            "name": name,
-            "phone": phone,
-            "address": address,
-        }
-    )
-    doc = table.get(doc_id=doc_id)
-    db.close()
-    return _build_profile_response(doc)
+        doc_id = table.insert(
+            {
+                "user_id": user_id,
+                "name": name,
+                "phone": phone,
+                "address": address,
+            }
+        )
+        doc = table.get(doc_id=doc_id)
+        return _build_profile_response(doc)
 
 
 def get_profile_by_user_id(user_id: int) -> dict | None:
     """Return the profile owned by ``user_id``, or None."""
-    db = _get_db()
-    profile = db.table(PROFILES_TABLE).get(where("user_id") == user_id)
-    db.close()
-    return _build_profile_response(profile) if profile is not None else None
+    with _get_db() as db:
+        profile = db.table(PROFILES_TABLE).get(where("user_id") == user_id)
+        return _build_profile_response(profile) if profile is not None else None
 
 
 def update_profile(user_id: int, payload: ProfileUpdate) -> dict | None:
@@ -71,32 +68,28 @@ def update_profile(user_id: int, payload: ProfileUpdate) -> dict | None:
     Partial update: only fields present in the payload are changed.
     Returns None if the user has no profile.
     """
-    db = _get_db()
-    table = db.table(PROFILES_TABLE)
+    with _get_db() as db:
+        table = db.table(PROFILES_TABLE)
 
-    profile = table.get(where("user_id") == user_id)
-    if profile is None:
-        db.close()
-        return None
+        profile = table.get(where("user_id") == user_id)
+        if profile is None:
+            return None
 
-    data = payload.model_dump(exclude_unset=True)
-    table.update(data, doc_ids=[profile.doc_id])
+        data = payload.model_dump(exclude_unset=True)
+        table.update(data, doc_ids=[profile.doc_id])
 
-    updated = table.get(doc_id=profile.doc_id)
-    db.close()
-    return _build_profile_response(updated)
+        updated = table.get(doc_id=profile.doc_id)
+        return _build_profile_response(updated)
 
 
 def delete_profile_by_user_id(user_id: int) -> bool:
     """Delete the profile owned by ``user_id``. Returns False if absent."""
-    db = _get_db()
-    table = db.table(PROFILES_TABLE)
+    with _get_db() as db:
+        table = db.table(PROFILES_TABLE)
 
-    profile = table.get(where("user_id") == user_id)
-    if profile is None:
-        db.close()
-        return False
+        profile = table.get(where("user_id") == user_id)
+        if profile is None:
+            return False
 
-    table.remove(doc_ids=[profile.doc_id])
-    db.close()
-    return True
+        table.remove(doc_ids=[profile.doc_id])
+        return True
