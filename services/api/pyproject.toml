@@ -22,6 +22,7 @@ dependencies = [
 [project.scripts]
 seed = "seed:main"
 seed-users = "seed_users:main"
+seed-incidents = "seed_incidents:main"
 
 [project.optional-dependencies]
 test = [

@@ -5,9 +5,9 @@
   "description": "Brasaland corporate website — grilled food restaurant chain in Colombia and the US",
   "scripts": {
     "dev": "next dev --turbopack",
-    "dev:back": "cd services/api && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "dev:back": "node scripts/dev-backend.mjs",
     "dev:office": "pnpm --filter brasaland-backoffice dev",
-    "dev:all": "concurrently -n front,back,office -c blue,green,yellow \"pnpm dev\" \"lsof -ti:8000 | xargs kill -9 2>/dev/null; sleep 1; pnpm dev:back\" \"pnpm dev:office\"",
+    "dev:all": "concurrently --kill-others-on-fail -n front,back,office -c blue,green,yellow \"pnpm dev\" \"pnpm dev:back\" \"pnpm dev:office\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

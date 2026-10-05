@@ -1,19 +1,42 @@
-"""Incidents router — CSV upload analysis and export endpoints."""
+"""Incidents router — Incident Manager CRUD, leadership metrics, and the
+legacy CSV upload analysis/export endpoints.
+
+GET    /incidents                list incidents with filters + pagination
+POST   /incidents                create a new incident
+GET    /incidents/metrics        leadership aggregation (staff only)
+POST   /incidents/analyze        upload a CSV, validate + persist + summarise
+GET    /incidents/result/export  download the last analysis as CSV
+GET    /incidents/{id}           get a single incident
+PATCH  /incidents/{id}           edit an incident's fields
+PATCH  /incidents/{id}/status    transition an incident's lifecycle status
+"""
 
 from __future__ import annotations
 
 import io
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
-from app.core.deps import require_any_user
+from app.core.deps import get_current_user, require_any_user, require_staff
+from app.models.schemas import (
+    IncidentCreate,
+    IncidentResponse,
+    IncidentStatusUpdate,
+    IncidentUpdate,
+)
 from app.services.incidents import (
     analyze,
+    create_incident,
+    get_incident_by_id,
+    get_incident_metrics,
+    list_incidents,
     read_csv_from_bytes,
     results_to_csv_bytes,
     results_to_summary_json,
+    update_incident,
+    update_incident_status,
 )
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
@@ -22,6 +45,49 @@ router = APIRouter(prefix="/incidents", tags=["incidents"])
 _last_analysis: Optional[dict] = None
 
 
+# ── GET /incidents ─────────────────────────────────────────
+@router.get("")
+async def list_incidents_route(
+    status: str | None = None,
+    category: str | None = None,
+    branch: str | None = None,
+    origin: str | None = None,
+    search: str | None = None,
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: dict = Depends(get_current_user),
+):
+    """List incidents with optional filters and pagination."""
+    data, total = list_incidents(
+        status=status,
+        category=category,
+        branch=branch,
+        origin=origin,
+        search=search,
+        page=page,
+        limit=limit,
+    )
+    return {"data": data, "total": total, "page": page, "limit": limit}
+
+
+# ── POST /incidents ────────────────────────────────────────
+@router.post("", response_model=IncidentResponse, status_code=201)
+async def create_incident_route(
+    payload: IncidentCreate,
+    current_user: dict = Depends(get_current_user),
+):
+    """Log a new incident (branch staff, HQ, or a customer-reported issue)."""
+    return create_incident(payload)
+
+
+# ── GET /incidents/metrics ─────────────────────────────────
+@router.get("/metrics")
+async def get_incident_metrics_route(current_user: dict = Depends(require_staff)):
+    """Aggregated incident metrics for leadership."""
+    return {"data": get_incident_metrics()}
+
+
+# ── POST /incidents/analyze ────────────────────────────────
 @router.post("/analyze")
 async def analyze_incidents(
     file: UploadFile = File(...),
@@ -29,7 +95,8 @@ async def analyze_incidents(
 ):
     """
     Accept a CSV file via multipart/form-data, run the same validation
-    analysis as ``analyze.py``, and return a JSON summary (authenticated).
+    analysis as ``analyze.py``, persist valid rows into the incidents
+    table, and return a JSON summary (authenticated).
     """
     global _last_analysis
 
@@ -71,7 +138,7 @@ async def analyze_incidents(
             detail=f"Could not read the CSV file: {exc}",
         )
 
-    # ── Analyse ─────────────────────────────────────────────
+    # ── Analyse + persist ───────────────────────────────────
     try:
         results = analyze(rows)
     except Exception as exc:
@@ -87,6 +154,7 @@ async def analyze_incidents(
     return {"status": "ok", "data": summary}
 
 
+# ── GET /incidents/result/export ───────────────────────────
 @router.get("/result/export")
 async def export_results(current_user: dict = Depends(require_any_user)):
     """
@@ -110,3 +178,47 @@ async def export_results(current_user: dict = Depends(require_any_user)):
             "Content-Disposition": 'attachment; filename="incident_analysis_results.csv"',
         },
     )
+
+
+# ── GET /incidents/{id} ─────────────────────────────────────
+@router.get("/{incident_id}", response_model=IncidentResponse)
+async def get_incident(
+    incident_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Get a single incident by ID."""
+    incident = get_incident_by_id(incident_id)
+    if incident is None:
+        raise HTTPException(status_code=404, detail=f"Incident {incident_id} not found")
+    return incident
+
+
+# ── PATCH /incidents/{id} ───────────────────────────────────
+@router.patch("/{incident_id}", response_model=IncidentResponse)
+async def patch_incident(
+    incident_id: str,
+    payload: IncidentUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    """Edit an incident's fields (title/description/category/branch/...)."""
+    incident = update_incident(incident_id, payload)
+    if incident is None:
+        raise HTTPException(status_code=404, detail=f"Incident {incident_id} not found")
+    return incident
+
+
+# ── PATCH /incidents/{id}/status ────────────────────────────
+@router.patch("/{incident_id}/status", response_model=IncidentResponse)
+async def patch_incident_status(
+    incident_id: str,
+    payload: IncidentStatusUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    """Transition an incident through its lifecycle (open -> in_progress -> resolved, or -> discarded)."""
+    try:
+        incident = update_incident_status(incident_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if incident is None:
+        raise HTTPException(status_code=404, detail=f"Incident {incident_id} not found")
+    return incident

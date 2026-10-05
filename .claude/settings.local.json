@@ -4,9 +4,39 @@
       "Bash(curl:*)",
       "Bash(tree:*)",
       "Bash(source .venv/bin/activate)",
-      "Bash(uvicorn app.main:app:*)"
+      "Bash(uvicorn app.main:app:*)",
+      "Bash(uv run *)",
+      "Bash(python3 -V)",
+      "Bash(./.venv/bin/python -m pytest -q)",
+      "Bash(git stash *)",
+      "Bash(./.venv/bin/python -m pytest -q tests/test_suppliers.py)",
+      "Bash(cp db.json /tmp/db.json.bak)",
+      "Bash(./.venv/bin/python seed_incidents.py)",
+      "Bash(python3 -c ' *)",
+      "Bash(./.venv/bin/python -m pytest -q tests/test_schemas.py tests/test_route_protection.py)",
+      "Bash(cp /tmp/db.json.bak /Users/laxosceles/Documents/4geeks/ai-engineering-company-project-monorepo/services/api/db.json 2>/dev/null && echo \"restored\" || echo \"no backup found, leaving seeded db.json in place\")",
+      "Bash(pnpm exec *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(pnpm run *)",
+      "Bash(./.venv/bin/python seed_users.py)",
+      "Bash(lsof -i :8000 -sTCP:LISTEN)",
+      "Bash(ps -p 68319 79500 80644 -o pid,ppid,etime,command)",
+      "Bash(ps -p 68319 -o pid=,ppid=,etime=,command=)",
+      "Bash(ps -p 79500 -o pid=,ppid=,etime=,command=)",
+      "Bash(ps -p 80644 -o pid=,ppid=,etime=,command=)",
+      "Bash(./.venv/bin/python -c \"from app.main import app; print\\('ok', len\\(app.routes\\)\\)\")",
+      "Bash(kill 80644 79500)",
+      "Bash(kill 68319)",
+      "Bash(nohup ./.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000)",
+      "Bash(pkill -f \"uvicorn app.main:app\")",
+      "Bash(pkill -f \"next dev --turbopack -p 3002\")",
+      "Bash(lsof -i :8000 -i :3002 -sTCP:LISTEN)",
+      "Bash(git checkout *)"
     ],
     "deny": [],
-    "ask": []
+    "ask": [],
+    "additionalDirectories": [
+      "/private/tmp"
+    ]
   }
 }

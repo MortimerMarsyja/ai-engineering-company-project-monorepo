@@ -40,35 +40,53 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ── Incident records ─────────────────────────────────────
+# ── Incident Manager ──────────────────────────────────────
+class IncidentOrigin(str, Enum):
+    CUSTOMER = "customer"
+    BRANCH = "branch"
+    HEADQUARTERS = "headquarters"
+
+
 class IncidentStatus(str, Enum):
-    OPEN = "OPEN"
-    CLOSED = "CLOSED"
-    DISCARDED = "DISCARDED"
+    OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    RESOLVED = "resolved"
+    DISCARDED = "discarded"
 
 
 IncidentCategory = Literal[
     "CUSTOMER_COMPLAINT", "EQUIPMENT", "SUPPLY", "FOOD_QUALITY", "STAFF"
 ]
 
+# Legal lifecycle transitions: open -> in_progress -> resolved, discarded reachable from either.
+INCIDENT_STATUS_TRANSITIONS: dict[IncidentStatus, set[IncidentStatus]] = {
+    IncidentStatus.OPEN: {IncidentStatus.IN_PROGRESS, IncidentStatus.DISCARDED},
+    IncidentStatus.IN_PROGRESS: {IncidentStatus.RESOLVED, IncidentStatus.DISCARDED},
+    IncidentStatus.RESOLVED: set(),
+    IncidentStatus.DISCARDED: set(),
+}
+
 
 class IncidentFields(BaseModel):
-    incident_id: str = Field(..., pattern=r"^BRS-\d{6}$")
-    date: date
-    location_id: str = Field(..., pattern=r"^(COL-(?:0[1-9]|10)|FLA-0[1-4])$")
-    category: IncidentCategory
+    title: str = Field(..., min_length=1)
     description: str = Field(..., min_length=5)
-    status: IncidentStatus
+    category: IncidentCategory
+    status: IncidentStatus = IncidentStatus.OPEN
+    origin: IncidentOrigin
+    branch: str = Field(..., min_length=1)
+    # Legacy fields carried over from the CSV incident-report model (incidents-context.md).
+    # Optional here because manually-logged incidents (form submissions) won't have them.
     customer_id: str | None = Field(default=None, pattern=r"^CLI-\d{6}$")
-    satisfaction_score: int | None = Field(default=None, gt=0, le=5, strict=True)
-    reporter_id: str = Field(..., pattern=r"^MGR-\d{2}$")
+    satisfaction_score: int | None = Field(default=None, ge=1, le=5)
+    reporter_id: str | None = Field(default=None, pattern=r"^MGR-\d{2}$")
+    incident_date: date | None = None
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
     @model_validator(mode="after")
-    def closed_incidents_require_score(self) -> "IncidentFields":
-        if self.status is IncidentStatus.CLOSED and self.satisfaction_score is None:
-            raise ValueError("Closed incidents require a satisfaction score")
+    def resolved_incidents_require_score(self) -> "IncidentFields":
+        if self.status is IncidentStatus.RESOLVED and self.satisfaction_score is None:
+            raise ValueError("Resolved incidents require a satisfaction score")
         return self
 
 
@@ -76,7 +94,26 @@ class IncidentCreate(IncidentFields):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
 
+class IncidentUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1)
+    description: str | None = Field(default=None, min_length=5)
+    category: IncidentCategory | None = None
+    branch: str | None = Field(default=None, min_length=1)
+    customer_id: str | None = Field(default=None, pattern=r"^CLI-\d{6}$")
+    reporter_id: str | None = Field(default=None, pattern=r"^MGR-\d{2}$")
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+
+class IncidentStatusUpdate(BaseModel):
+    status: IncidentStatus
+    satisfaction_score: int | None = Field(default=None, ge=1, le=5)
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+
 class IncidentResponse(IncidentFields):
+    id: str
     created_at: datetime
     updated_at: datetime
 

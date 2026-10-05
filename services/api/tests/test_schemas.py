@@ -16,14 +16,15 @@ from app.models.schemas import (
 @pytest.fixture
 def incident_data():
     return {
-        "incident_id": "BRS-000001",
-        "date": date(2026, 9, 28),
-        "location_id": "COL-01",
-        "category": "EQUIPMENT",
+        "title": "Grill temperature control failed",
         "description": "Grill temperature control failed",
-        "status": "CLOSED",
+        "category": "EQUIPMENT",
+        "status": "resolved",
+        "origin": "branch",
+        "branch": "COL-01",
         "satisfaction_score": 4,
         "reporter_id": "MGR-01",
+        "incident_date": date(2026, 9, 28),
     }
 
 
@@ -62,7 +63,11 @@ def test_create_models_reject_system_metadata(request, create_model, data_fixtur
         (
             IncidentResponse,
             "incident_data",
-            {"created_at": datetime.now(timezone.utc), "updated_at": datetime.now(timezone.utc)},
+            {
+                "id": "BRS-000001",
+                "created_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc),
+            },
         ),
         (
             SupplierResponse,

@@ -36,6 +36,7 @@ def _patch_db_path(monkeypatch):
     monkeypatch.setattr("app.services.users._DB_PATH", TEST_DB)
     monkeypatch.setattr("app.services.profiles._DB_PATH", TEST_DB)
     monkeypatch.setattr("app.routers.suppliers._DB_PATH", TEST_DB)
+    monkeypatch.setattr("app.services.incidents._DB_PATH", TEST_DB)
     _clean_test_db()
     yield
     _clean_test_db()
@@ -96,6 +97,22 @@ ANONYMOUS_401_ROUTES = [
     ("PATCH", "/api/v1/suppliers/1/status", {"status": "suspended"}),
     ("DELETE", "/api/v1/suppliers/1", None),
     ("GET", "/api/v1/incidents/result/export", None),
+    ("GET", "/api/v1/incidents", None),
+    (
+        "POST",
+        "/api/v1/incidents",
+        {
+            "title": "Walk-in cooler not cooling",
+            "description": "Walk-in cooler stopped cooling overnight",
+            "category": "EQUIPMENT",
+            "origin": "branch",
+            "branch": "COL-01",
+        },
+    ),
+    ("GET", "/api/v1/incidents/metrics", None),
+    ("GET", "/api/v1/incidents/nonexistent-id", None),
+    ("PATCH", "/api/v1/incidents/nonexistent-id", {"title": "Updated title"}),
+    ("PATCH", "/api/v1/incidents/nonexistent-id/status", {"status": "in_progress"}),
 ]
 
 
@@ -200,6 +217,7 @@ STAFF_ONLY_403_ROUTES = [
     ("PATCH", "/api/v1/suppliers/1/rate", {"rate": 4.5}),
     ("PATCH", "/api/v1/suppliers/1/status", {"status": "suspended"}),
     ("DELETE", "/api/v1/suppliers/1", None),
+    ("GET", "/api/v1/incidents/metrics", None),
 ]
 
 
