@@ -7,15 +7,20 @@ import { useRouter } from "next/navigation";
 import { KeyRound, Mail, MapPin, Pencil, Phone, UserRound } from "lucide-react";
 import { TOKEN_STORAGE_KEY } from "@/lib/auth";
 import ErrorState from "@/components/ErrorState";
+import Badge from "@/components/Badge";
 import { isRetryableError } from "@/lib/api-error";
 import {
   getCurrentAccount,
   ProfileRequestError,
+  ROLE_LABELS,
+  ROLE_STYLES,
   type Profile,
+  type UserRole,
 } from "@/lib/profile";
 
 interface Account {
   email: string;
+  role: UserRole;
   profile: Profile;
 }
 
@@ -84,7 +89,12 @@ export default function ProfilePage() {
         <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-sm font-medium text-brasa-red">Account</p>
-            <h1 className="mt-1 text-2xl font-bold text-gray-950">Profile</h1>
+            <div className="mt-1 flex items-center gap-2.5">
+              <h1 className="text-2xl font-bold text-gray-950">Profile</h1>
+              {account?.role ? (
+                <Badge label={ROLE_LABELS[account.role] ?? account.role} className={ROLE_STYLES[account.role] ?? "bg-zinc-100 text-zinc-600"} />
+              ) : null}
+            </div>
             <p className="mt-2 text-sm text-gray-600">
               Your contact details for Brasaland operations.
             </p>

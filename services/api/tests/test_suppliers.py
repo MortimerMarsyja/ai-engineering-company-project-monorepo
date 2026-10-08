@@ -120,7 +120,7 @@ class TestCreateSupplier:
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test", headers=AUTH_HEADERS
         ) as client:
-            resp = await client.post("/api/v1/suppliers/", json=SAMPLE_SUPPLIER)
+            resp = await client.post("/api/v1/suppliers", json=SAMPLE_SUPPLIER)
 
         assert resp.status_code == 201
         body = resp.json()
@@ -146,7 +146,7 @@ class TestCreateSupplier:
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test", headers=AUTH_HEADERS
         ) as client:
-            resp = await client.post("/api/v1/suppliers/", json=SAMPLE_SUPPLIER)
+            resp = await client.post("/api/v1/suppliers", json=SAMPLE_SUPPLIER)
 
         assert resp.status_code == 409
         assert "already exists" in resp.json()["detail"]
@@ -160,7 +160,7 @@ class TestCreateSupplier:
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test", headers=AUTH_HEADERS
         ) as client:
-            resp = await client.post("/api/v1/suppliers/", json=bad)
+            resp = await client.post("/api/v1/suppliers", json=bad)
 
         assert resp.status_code == 422
 
@@ -172,7 +172,7 @@ class TestCreateSupplier:
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test", headers=AUTH_HEADERS
         ) as client:
-            resp = await client.post("/api/v1/suppliers/", json=bad)
+            resp = await client.post("/api/v1/suppliers", json=bad)
 
         assert resp.status_code == 422
 
@@ -184,7 +184,7 @@ class TestCreateSupplier:
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test", headers=AUTH_HEADERS
         ) as client:
-            resp = await client.post("/api/v1/suppliers/", json=bad)
+            resp = await client.post("/api/v1/suppliers", json=bad)
 
         assert resp.status_code == 422
 
@@ -196,7 +196,7 @@ class TestListSuppliers:
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test", headers=AUTH_HEADERS
         ) as client:
-            resp = await client.get("/api/v1/suppliers/")
+            resp = await client.get("/api/v1/suppliers")
 
         assert resp.status_code == 200
         assert resp.json()["data"] == []
@@ -211,7 +211,7 @@ class TestListSuppliers:
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test", headers=AUTH_HEADERS
         ) as client:
-            resp = await client.get("/api/v1/suppliers/")
+            resp = await client.get("/api/v1/suppliers")
 
         assert resp.status_code == 200
         assert len(resp.json()["data"]) == 2
@@ -227,7 +227,7 @@ class TestListSuppliers:
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test", headers=AUTH_HEADERS
         ) as client:
-            resp = await client.get("/api/v1/suppliers/", params={"product_category": "Meat"})
+            resp = await client.get("/api/v1/suppliers", params={"product_category": "Meat"})
 
         assert resp.status_code == 200
         data = resp.json()["data"]
@@ -244,7 +244,7 @@ class TestListSuppliers:
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test", headers=AUTH_HEADERS
         ) as client:
-            resp = await client.get("/api/v1/suppliers/", params={"status": "suspended"})
+            resp = await client.get("/api/v1/suppliers", params={"status": "suspended"})
 
         assert resp.status_code == 200
         data = resp.json()["data"]
@@ -262,7 +262,7 @@ class TestListSuppliers:
             transport=ASGITransport(app=app), base_url="http://test", headers=AUTH_HEADERS
         ) as client:
             resp = await client.get(
-                "/api/v1/suppliers/",
+                "/api/v1/suppliers",
                 params={"product_category": "Meat", "status": "active"},
             )
 

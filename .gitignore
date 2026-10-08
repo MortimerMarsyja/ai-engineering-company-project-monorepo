@@ -9,6 +9,10 @@
 __pycache__/
 *.pyc
 
+# Test coverage
+.coverage
+coverage/
+
 # Next.js
 .next/
 out/

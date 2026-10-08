@@ -12,19 +12,16 @@ import {
 import type { SupplierFormState, SupplierFormErrors } from "@/lib/supplier-form";
 import FormField from "./FormField";
 import Select from "./Select";
-import Toast from "./Toast";
+import { useToast } from "./ToastProvider";
 import { CATEGORY_OPTIONS } from "@/lib/suppliers-api";
 
 export default function SupplierForm() {
   const router = useRouter();
+  const toast = useToast();
 
   const [form, setForm] = useState<SupplierFormState>(EMPTY_SUPPLIER_FORM);
   const [errors, setErrors] = useState<SupplierFormErrors>({});
   const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState<{
-    kind: "success" | "error";
-    message: string;
-  } | null>(null);
 
   function setField(field: keyof SupplierFormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -36,7 +33,6 @@ export default function SupplierForm() {
 
     const nextErrors = validateSupplierForm(form);
     setErrors(nextErrors);
-    setToast(null);
 
     if (Object.values(nextErrors).some(Boolean)) return;
 
@@ -45,20 +41,11 @@ export default function SupplierForm() {
     setSubmitting(true);
     try {
       await createSupplier(payload);
-      setToast({
-        kind: "success",
-        message: "Supplier created successfully.",
-      });
-      setTimeout(() => {
-        router.push("/suppliers");
-        router.refresh();
-      }, 800);
+      toast.success("Supplier created successfully.");
+      router.push("/suppliers");
+      router.refresh();
     } catch (err) {
-      setToast({
-        kind: "error",
-        message:
-          err instanceof Error ? err.message : "Failed to create supplier.",
-      });
+      toast.error(err instanceof Error ? err.message : "Failed to create supplier.");
     } finally {
       setSubmitting(false);
     }
@@ -66,8 +53,6 @@ export default function SupplierForm() {
 
   return (
     <>
-      {toast && <Toast kind={toast.kind} message={toast.message} />}
-
       <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
         <div className="border-b border-zinc-100 bg-zinc-50 px-4 py-3 text-xs uppercase tracking-wide text-zinc-500">
           New supplier

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import FormField from "./FormField";
 import Select from "./Select";
-import Toast from "./Toast";
+import { useToast } from "./ToastProvider";
 import { createIncident } from "@/lib/incidents-api";
 import {
   CATEGORY_OPTIONS,
@@ -47,10 +47,10 @@ function validate(form: FormState): FormErrors {
 
 export default function IncidentForm() {
   const router = useRouter();
+  const toast = useToast();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [toast, setToast] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -73,23 +73,20 @@ export default function IncidentForm() {
         customer_id: form.customer_id.trim() || undefined,
         reporter_id: form.reporter_id.trim() || undefined,
       });
-      setToast({ kind: "success", message: "Incident logged successfully." });
+      toast.success("Incident logged successfully.");
       if (incident?.id) {
         router.push(`/incidents/${incident.id}`);
         router.refresh();
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "We couldn't log this incident. Please try again.";
-      setToast({ kind: "error", message });
+      toast.error(err instanceof Error ? err.message : "We couldn't log this incident. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <>
-      {toast ? <Toast kind={toast.kind} message={toast.message} /> : null}
-      <form onSubmit={handleSubmit} className="max-w-2xl space-y-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+    <form onSubmit={handleSubmit} className="max-w-2xl space-y-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <FormField
           id="title"
           label="Title"
@@ -179,6 +176,5 @@ export default function IncidentForm() {
           </button>
         </div>
       </form>
-    </>
   );
 }

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createCandidate, updateCandidate } from "@/lib/api";
 import FormField from "./FormField";
-import Toast from "./Toast";
+import { useToast } from "./ToastProvider";
 import {
   EMPTY_FORM,
   formStateFromCandidate,
@@ -22,6 +22,7 @@ interface CandidateFormProps {
 
 export default function CandidateForm({ mode, candidate }: CandidateFormProps) {
   const router = useRouter();
+  const toast = useToast();
 
   const isEdit = mode === "edit";
   const candidateId = candidate?.id;
@@ -31,10 +32,6 @@ export default function CandidateForm({ mode, candidate }: CandidateFormProps) {
   );
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState<{
-    kind: "success" | "error";
-    message: string;
-  } | null>(null);
 
   function setField(field: keyof FormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -48,7 +45,6 @@ export default function CandidateForm({ mode, candidate }: CandidateFormProps) {
 
     const nextErrors = validate(form);
     setErrors(nextErrors);
-    setToast(null);
 
     if (Object.values(nextErrors).some(Boolean)) {
       return;
@@ -62,23 +58,11 @@ export default function CandidateForm({ mode, candidate }: CandidateFormProps) {
         ? await updateCandidate(candidateId!, payload)
         : await createCandidate(payload);
 
-      setToast({
-        kind: "success",
-        message: isEdit
-          ? "Candidate updated successfully."
-          : "Candidate created successfully.",
-      });
-
-      setTimeout(() => {
-        router.push(`/hiring/${saved.id}`);
-        router.refresh();
-      }, 800);
+      toast.success(isEdit ? "Candidate updated successfully." : "Candidate created successfully.");
+      router.push(`/hiring/${saved.id}`);
+      router.refresh();
     } catch (err) {
-      setToast({
-        kind: "error",
-        message:
-          err instanceof Error ? err.message : "Failed to submit candidate.",
-      });
+      toast.error(err instanceof Error ? err.message : "Failed to submit candidate.");
     } finally {
       setSubmitting(false);
     }
@@ -86,8 +70,6 @@ export default function CandidateForm({ mode, candidate }: CandidateFormProps) {
 
   return (
     <>
-      {toast && <Toast kind={toast.kind} message={toast.message} />}
-
       <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
         <div className="border-b border-zinc-100 bg-zinc-50 px-4 py-3 text-xs uppercase tracking-wide text-zinc-500">
           {isEdit ? "Edit candidate" : "New candidate"}

@@ -7,7 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import PageSkeleton from "@/components/PageSkeleton";
 import InfoRow from "@/components/InfoRow";
 import Badge from "@/components/Badge";
-import Toast from "@/components/Toast";
+import { useToast } from "@/components/ToastProvider";
 import ErrorState from "@/components/ErrorState";
 import { isRetryableError } from "@/lib/api-error";
 import { fetchIncident, updateIncidentStatus } from "@/lib/incidents-api";
@@ -30,12 +30,12 @@ function formatDateSafe(value: string | null | undefined): string {
 
 export default function IncidentDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const toast = useToast();
   const [incident, setIncident] = useState<Incident | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [scoreInput, setScoreInput] = useState("");
-  const [toast, setToast] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -60,7 +60,7 @@ export default function IncidentDetailPage() {
     if (!incident) return;
 
     if (status === "resolved" && incident.satisfaction_score == null && !scoreInput) {
-      setToast({ kind: "error", message: "Please enter a satisfaction score (1-5) before resolving this incident." });
+      toast.error("Please enter a satisfaction score (1-5) before resolving this incident.");
       return;
     }
 
@@ -71,12 +71,9 @@ export default function IncidentDetailPage() {
         satisfaction_score: scoreInput ? Number(scoreInput) : undefined,
       });
       setIncident(updated);
-      setToast({ kind: "success", message: `Incident marked as ${STATUS_LABELS[status] ?? status}.` });
+      toast.success(`Incident marked as ${STATUS_LABELS[status] ?? status}.`);
     } catch (err) {
-      setToast({
-        kind: "error",
-        message: err instanceof Error ? err.message : "We couldn't update this incident's status. Please try again.",
-      });
+      toast.error(err instanceof Error ? err.message : "We couldn't update this incident's status. Please try again.");
     } finally {
       setIsTransitioning(false);
     }
@@ -116,7 +113,6 @@ export default function IncidentDetailPage() {
 
   return (
     <div className="space-y-6">
-      {toast ? <Toast kind={toast.kind} message={toast.message} /> : null}
       <BackLink href="/incidents">Back to Incident Manager</BackLink>
 
       <PageHeader

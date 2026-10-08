@@ -46,7 +46,17 @@
       "Bash(./.venv_check)",
       "Bash(python3 analyze.py /tmp/nope.csv)",
       "Bash(echo \"exit: $?\")",
-      "Bash(python3 analyze.py)"
+      "Bash(python3 analyze.py)",
+      "Bash(sed -n '/optional-dependencies/,/\\\\[tool/p')",
+      "Bash(./.venv/bin/pip show *)",
+      "Bash(./.venv/bin/python -m pytest tests/test_suppliers.py tests/test_route_protection.py -q)",
+      "Bash(./.venv/bin/python -m pytest tests/test_incidents_service.py -q)",
+      "Bash(./.venv/bin/python -m pytest tests/test_records_service.py -q)",
+      "Bash(./.venv/bin/python -m pytest tests/test_email_service.py -q)",
+      "Bash(./.venv/bin/python -m pytest --cov=app --cov-report=term-missing -q)",
+      "Bash(pnpm -v)",
+      "Bash(pnpm add *)",
+      "Bash(pnpm test *)"
     ],
     "deny": [],
     "ask": [],

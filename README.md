@@ -30,6 +30,22 @@ This repository is the **starter template** for transversal projects. You will w
 
 ---
 
+## Running tests
+
+The backend (`services/api`, pytest) and the backoffice frontend (`uis/backoffice`, Jest) each have their own test suite. Run them from the **repo root**:
+
+```bash
+pnpm test:back    # backend only — pytest with coverage (app/)
+pnpm test:front   # frontend only — Jest with coverage (uis/backoffice/lib/*.ts logic)
+pnpm test         # both, back-to-back
+```
+
+- `pnpm test:back` requires the API's test dependencies — either a `services/api/.venv` created from `services/api/requirements.txt` (or `pyproject.toml`'s `[project.optional-dependencies].test`), or `uv` installed (it falls back to `uv run pytest`). It prints a coverage report for `services/api/app` after the test results.
+- `pnpm test:front` requires the backoffice's dev dependencies (`pnpm install` at the repo root installs every workspace, including `uis/backoffice`). It prints a coverage report for the frontend's pure business-logic modules (form validation, status transitions, error classification — not components or HTTP wrappers).
+- Both suites also work directly from their own package if you're already in that folder: `cd services/api && uv run pytest` / `cd uis/backoffice && pnpm test`.
+
+---
+
 ## How to think about this monorepo
 
 You are building **one company** across many milestones and projects. Each top-level folder has a **single responsibility** — like a real engineering team repo.

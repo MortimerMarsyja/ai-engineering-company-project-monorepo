@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createNote, deleteNote } from "@/lib/api";
+import { useToast } from "./ToastProvider";
 import { formatDateTime } from "@/lib/format";
 import type { CandidateNote } from "@/lib/types";
 
@@ -16,11 +17,11 @@ export default function CandidateNotes({
   initialNotes,
 }: CandidateNotesProps) {
   const router = useRouter();
+  const toast = useToast();
 
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   async function handleAddNote(e: React.FormEvent) {
     e.preventDefault();
@@ -28,15 +29,12 @@ export default function CandidateNotes({
     if (!content || submitting) return;
 
     setSubmitting(true);
-    setError(null);
     try {
       await createNote(candidateId, { content });
       setDraft("");
       router.refresh();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to add note.",
-      );
+      toast.error(err instanceof Error ? err.message : "Failed to add note.");
     } finally {
       setSubmitting(false);
     }
@@ -45,14 +43,11 @@ export default function CandidateNotes({
   async function handleDeleteNote(noteId: string) {
     if (deletingId) return;
     setDeletingId(noteId);
-    setError(null);
     try {
       await deleteNote(candidateId, noteId);
       router.refresh();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to delete note.",
-      );
+      toast.error(err instanceof Error ? err.message : "Failed to delete note.");
     } finally {
       setDeletingId(null);
     }
@@ -83,12 +78,6 @@ export default function CandidateNotes({
           {submitting ? "Adding…" : "Add note"}
         </button>
       </form>
-
-      {error && (
-        <div className="border-b border-rose-100 bg-rose-50 px-4 py-2 text-sm text-rose-700">
-          {error}
-        </div>
-      )}
 
       {initialNotes.length === 0 ? (
         <div className="px-4 py-8 text-center text-sm text-zinc-400">

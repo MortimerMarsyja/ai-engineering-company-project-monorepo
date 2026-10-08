@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { patchCandidate } from "@/lib/api";
 import Select from "./Select";
+import { useToast } from "./ToastProvider";
 import {
   STATUS_OPTIONS,
   STAGE_OPTIONS,
@@ -22,31 +23,24 @@ export default function CandidateUpdate({
   initialStage,
 }: CandidateUpdateProps) {
   const router = useRouter();
+  const toast = useToast();
 
   const [expanded, setExpanded] = useState(false);
   const [status, setStatus] = useState<CandidateStatus>(initialStatus);
   const [stage, setStage] = useState<CandidateStage>(initialStage);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{
-    kind: "success" | "error";
-    text: string;
-  } | null>(null);
 
   const dirty =
     status !== initialStatus || stage !== initialStage;
 
   async function handleSave() {
     setSaving(true);
-    setMessage(null);
     try {
       await patchCandidate(candidateId, { status, stage });
-      setMessage({ kind: "success", text: "Updated successfully." });
+      toast.success("Candidate updated successfully.");
       router.refresh();
     } catch (err) {
-      setMessage({
-        kind: "error",
-        text: err instanceof Error ? err.message : "Failed to update candidate.",
-      });
+      toast.error(err instanceof Error ? err.message : "Failed to update candidate.");
     } finally {
       setSaving(false);
     }
@@ -57,10 +51,7 @@ export default function CandidateUpdate({
       <div className="mt-6 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
         <button
           type="button"
-          onClick={() => {
-            setExpanded(true);
-            setMessage(null);
-          }}
+          onClick={() => setExpanded(true)}
           className="inline-flex items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-200"
         >
           Update status / stage
@@ -101,22 +92,9 @@ export default function CandidateUpdate({
       </div>
 
       <div className="flex flex-col items-start gap-2 border-t border-zinc-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        {message ? (
-          <p
-            role="status"
-            className={
-              message.kind === "success"
-                ? "text-sm text-emerald-700"
-                : "text-sm text-rose-700"
-            }
-          >
-            {message.text}
-          </p>
-        ) : (
-          <p className="text-xs text-zinc-400">
-            Manually update this candidate&apos;s status and stage.
-          </p>
-        )}
+        <p className="text-xs text-zinc-400">
+          Manually update this candidate&apos;s status and stage.
+        </p>
         <button
           type="button"
           onClick={handleSave}

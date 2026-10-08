@@ -10,7 +10,10 @@
     "dev:all": "concurrently --kill-others-on-fail -n front,back,office -c blue,green,yellow \"pnpm dev\" \"pnpm dev:back\" \"pnpm dev:office\"",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:front": "pnpm --filter brasaland-backoffice test",
+    "test:back": "node scripts/test-backend.mjs",
+    "test": "pnpm test:back && pnpm test:front"
   },
   "dependencies": {
     "next": "^15.3.4",

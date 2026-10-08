@@ -30,6 +30,22 @@ Este repositorio es la **plantilla de inicio** para los proyectos transversales.
 
 ---
 
+## Ejecutar los tests
+
+El backend (`services/api`, pytest) y el frontend de backoffice (`uis/backoffice`, Jest) tienen cada uno su propia suite de tests. Ejecútalos desde la **raíz del repo**:
+
+```bash
+pnpm test:back    # solo backend — pytest con coverage (app/)
+pnpm test:front   # solo frontend — Jest con coverage (lógica en uis/backoffice/lib/*.ts)
+pnpm test         # ambos, uno tras otro
+```
+
+- `pnpm test:back` requiere las dependencias de test de la API — ya sea un `services/api/.venv` creado a partir de `services/api/requirements.txt` (o `[project.optional-dependencies].test` en `pyproject.toml`), o `uv` instalado (si no encuentra el venv, cae de vuelta a `uv run pytest`). Imprime un reporte de coverage de `services/api/app` tras los resultados de los tests.
+- `pnpm test:front` requiere las dependencias de desarrollo del backoffice (`pnpm install` en la raíz del repo instala todos los workspaces, incluido `uis/backoffice`). Imprime un reporte de coverage de los módulos de lógica de negocio pura del frontend (validación de formularios, transiciones de estado, clasificación de errores — no componentes ni wrappers HTTP).
+- Ambas suites también funcionan directamente desde su propio paquete si ya estás en esa carpeta: `cd services/api && uv run pytest` / `cd uis/backoffice && pnpm test`.
+
+---
+
 ## Cómo entender este monorepo
 
 Estás construyendo **una sola empresa** a lo largo de muchos hitos y proyectos. Cada carpeta de primer nivel tiene **una responsabilidad clara** — como en un repositorio real de un equipo de ingeniería.

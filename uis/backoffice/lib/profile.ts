@@ -13,8 +13,23 @@ export interface Profile {
   address: string | null;
 }
 
+export type UserRole = "admin" | "manager" | "user";
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  admin: "Admin",
+  manager: "Manager",
+  user: "User",
+};
+
+export const ROLE_STYLES: Record<UserRole, string> = {
+  admin: "bg-purple-100 text-purple-700",
+  manager: "bg-sky-100 text-sky-700",
+  user: "bg-zinc-100 text-zinc-600",
+};
+
 interface CurrentUser {
   email: string;
+  role: UserRole;
 }
 
 interface ApiEnvelope<T> {
@@ -109,7 +124,7 @@ export async function getCurrentAccount() {
     request<Profile>("/api/proxy/profiles/me"),
   ]);
 
-  return { email: user.email, profile };
+  return { email: user.email, role: user.role, profile };
 }
 
 export async function updateCurrentProfile(profile: ProfileUpdate) {

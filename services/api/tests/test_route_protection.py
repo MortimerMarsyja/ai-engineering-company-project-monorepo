@@ -90,9 +90,9 @@ ANONYMOUS_401_ROUTES = [
     ("GET", "/api/v1/auth/me", None),
     ("GET", "/api/v1/profiles/me", None),
     ("PUT", "/api/v1/profiles/me", {"name": "X"}),
-    ("GET", "/api/v1/suppliers/", None),
+    ("GET", "/api/v1/suppliers", None),
     ("GET", "/api/v1/suppliers/1", None),
-    ("POST", "/api/v1/suppliers/", {"rate": 4.5}),
+    ("POST", "/api/v1/suppliers", {"rate": 4.5}),
     ("PATCH", "/api/v1/suppliers/1/rate", {"rate": 4.5}),
     ("PATCH", "/api/v1/suppliers/1/status", {"status": "suspended"}),
     ("DELETE", "/api/v1/suppliers/1", None),
@@ -213,7 +213,7 @@ class TestPublicRoutes:
 # ── Role escalation: 403 for authenticated non-staff ──────
 STAFF_ONLY_403_ROUTES = [
     ("PUT", "/api/v1/users/1", {"email": "changed@test.com"}),
-    ("POST", "/api/v1/suppliers/", {"rate": 4.5}),
+    ("POST", "/api/v1/suppliers", {"rate": 4.5}),
     ("PATCH", "/api/v1/suppliers/1/rate", {"rate": 4.5}),
     ("PATCH", "/api/v1/suppliers/1/status", {"status": "suspended"}),
     ("DELETE", "/api/v1/suppliers/1", None),
