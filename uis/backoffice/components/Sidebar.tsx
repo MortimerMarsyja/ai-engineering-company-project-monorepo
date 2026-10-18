@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Boxes,
   ClipboardList,
   Flame,
   Gauge,
@@ -46,6 +47,7 @@ const navigation = [
   { name: "Brasa Points", href: "/loyalty", icon: Star },
   { name: "Hiring", href: "/hiring", icon: Users },
   { name: "Suppliers", href: "/suppliers", icon: Handshake },
+  { name: "Inventory", href: "/inventory", icon: Boxes },
 ];
 
 export default function Sidebar() {
