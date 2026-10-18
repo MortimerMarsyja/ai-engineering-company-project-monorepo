@@ -5,6 +5,7 @@ Run with:
 """
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -13,9 +14,18 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import get_settings
-from app.routers import auth, health, incidents, profiles, records, suppliers, users
+from app.core.database import init_db
+from app.routers import auth, health, incidents, inventory, profiles, records, suppliers, users
 
 logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    # Creates any missing SQLModel tables in Supabase on startup; existing
+    # tables and data are left untouched.
+    init_db()
+    yield
 
 
 def create_app() -> FastAPI:
@@ -27,6 +37,7 @@ def create_app() -> FastAPI:
         version=settings.APP_VERSION,
         docs_url="/docs",
         redoc_url="/redoc",
+        lifespan=lifespan,
     )
 
     # ── Middleware ──────────────────────────────────────────
@@ -71,6 +82,7 @@ def create_app() -> FastAPI:
     application.include_router(health.router)
     application.include_router(auth.router, prefix=settings.API_V1_PREFIX)
     application.include_router(incidents.router, prefix=settings.API_V1_PREFIX)
+    application.include_router(inventory.router, prefix=settings.API_V1_PREFIX)
     application.include_router(records.router, prefix=settings.API_V1_PREFIX)
     application.include_router(suppliers.router, prefix=settings.API_V1_PREFIX)
     application.include_router(users.router, prefix=settings.API_V1_PREFIX)

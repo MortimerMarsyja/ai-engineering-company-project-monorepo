@@ -142,6 +142,13 @@ ProductCategory = Literal[
     "Meat", "Produce", "Beverages", "Dairy", "Seafood", "Spices", "Other"
 ]
 
+ExitReason = Literal["kitchen_use", "waste", "transfer", "other"]
+
+CITIES_BY_COUNTRY: dict[Country, set[City]] = {
+    "Colombia": {"Medellín", "Bogotá", "Cali"},
+    "United States": {"Miami", "Orlando"},
+}
+
 LOCATIONS_BY_CITY: dict[tuple[Country, City], set[str]] = {
     ("Colombia", "Medellín"): {
         "Brasaland El Poblado",
@@ -316,5 +323,140 @@ class CandidateResponse(BaseModel):
     applied_at: datetime
     updated_at: datetime
     notes: list[CandidateNote] = Field(default_factory=list)
+
+
+# ── Menu Item (product-equivalent entity — Supabase) ─────
+# Request/response contracts for app.models.menu_item.MenuItem.
+class MenuItemFields(BaseModel):
+    name: str = Field(..., min_length=1)
+    sku: str = Field(..., min_length=1)
+    category: ProductCategory = "Other"
+    country: Country
+    city: City | None = None
+    price_cop: float = Field(..., gt=0)
+    price_usd: float = Field(..., gt=0)
+    dietary_preferences: list[DietaryPreference] = Field(default_factory=list)
+    is_available: bool = True
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    @model_validator(mode="after")
+    def validate_city_matches_country(self) -> "MenuItemFields":
+        if self.city is not None and self.city not in CITIES_BY_COUNTRY[self.country]:
+            raise ValueError("City must be available in the selected country")
+        return self
+
+
+class MenuItemCreate(MenuItemFields):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+
+class MenuItemResponse(MenuItemFields):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    current_stock: float = Field(
+        ...,
+        description=(
+            "Computed at read time as sum(InboundStock.quantity) - "
+            "sum(StockExit.quantity) for this ingredient_id. Not a column "
+            "on menu_items — never persisted, always derived."
+        ),
+    )
+
+    model_config = ConfigDict(str_strip_whitespace=True, from_attributes=True)
+
+
+# ── Inbound Stock (ingredient receipts — Supabase) ───────
+# Request/response contracts for app.models.inbound.InboundStock.
+# Standalone Pydantic models: the API layer never serializes the ORM
+# model directly, so router/db shape can evolve independently.
+class InboundStockFields(BaseModel):
+    # No user_uuid here: it is never client-supplied, the router sets it
+    # from the authenticated user (TinyDB id) — see app.routers.inventory.
+    ingredient_id: int = Field(..., gt=0, description="MenuItem.id this delivery replenishes")
+    quantity: float = Field(..., gt=0)
+    unit: str = Field(default="kg", min_length=1)
+    supplier_id: int | None = Field(default=None, description="Supplier doc_id in TinyDB")
+    country: Country
+    city: City | None = None
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    @model_validator(mode="after")
+    def validate_city_matches_country(self) -> "InboundStockFields":
+        if self.city is not None and self.city not in CITIES_BY_COUNTRY[self.country]:
+            raise ValueError("City must be available in the selected country")
+        return self
+
+
+class InboundStockCreate(InboundStockFields):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+
+class InboundStockResponse(InboundStockFields):
+    id: int
+    user_uuid: str = Field(..., description="Authenticated TinyDB user id that logged the receipt")
+    created_at: datetime
+
+    model_config = ConfigDict(str_strip_whitespace=True, from_attributes=True)
+
+
+# ── Outbound Stock (ingredient exits — Supabase) ─────────
+# Request/response contracts for app.models.outbound.StockExit.
+class StockExitFields(BaseModel):
+    # No user_uuid here: it is never client-supplied, the router sets it
+    # from the authenticated user (TinyDB id) — see app.routers.inventory.
+    ingredient_id: int = Field(..., gt=0, description="MenuItem.id this withdrawal is taken from")
+    quantity: float = Field(..., gt=0)
+    unit: str = Field(default="kg", min_length=1)
+    reason: ExitReason = "kitchen_use"
+    country: Country
+    city: City | None = None
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    @model_validator(mode="after")
+    def validate_city_matches_country(self) -> "StockExitFields":
+        if self.city is not None and self.city not in CITIES_BY_COUNTRY[self.country]:
+            raise ValueError("City must be available in the selected country")
+        return self
+
+
+class StockExitCreate(StockExitFields):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+
+class StockExitResponse(StockExitFields):
+    id: int
+    user_uuid: str = Field(..., description="Authenticated TinyDB user id that logged the exit")
+    created_at: datetime
+
+    model_config = ConfigDict(str_strip_whitespace=True, from_attributes=True)
+
+
+# ── Orders (unified inbound + outbound feed) ─────────────
+# Combines InboundStock/StockExit rows with the MenuItem they reference,
+# for a single GET /inventory/orders listing.
+OrderType = Literal["inbound", "outbound"]
+
+
+class OrderResponse(BaseModel):
+    id: int
+    order_type: OrderType
+    ingredient_id: int
+    product_name: str
+    product_sku: str
+    quantity: float
+    unit: str
+    user_uuid: str
+    country: Country
+    city: City | None
+    created_at: datetime
+    # Present only for the matching order_type.
+    supplier_id: int | None = None
+    reason: ExitReason | None = None
+
+    model_config = ConfigDict(str_strip_whitespace=True)
 
     model_config = ConfigDict(from_attributes=True)
