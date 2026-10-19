@@ -1,0 +1,66 @@
+# Local dev orchestration for the whole stack. Config/credentials live in
+# a single root .env (gitignored) — see .env.example for the template.
+#
+#   cp .env.example .env   # fill in real values once
+#   docker compose up --build
+#
+# ui:      brasaland-web (http://localhost:3000) + backoffice
+#          (http://localhost:3001) — one container, two Next.js dev
+#          servers (see uis/start.sh).
+# backend: FastAPI (http://localhost:8000), services/api/app/main.py.
+#
+# Both services share the "brasaland-net" network and reach each other
+# by service name (e.g. the backoffice's server-side route handlers call
+# http://backend:8000, never http://localhost:8000 — localhost inside a
+# container means the container itself, not its sibling). Code the
+# browser loads (the Next.js pages/JS) instead uses the host-facing
+# http://localhost:8000, since the browser runs outside every container.
+
+services:
+  ui:
+    build:
+      context: ./uis
+      dockerfile: Dockerfile
+    env_file:
+      - ./.env
+    volumes:
+      # Bind-mount source for live reload...
+      - ./uis/brasaland-web:/app/brasaland-web
+      - ./uis/backoffice:/app/backoffice
+      # ...but keep each app's node_modules as a named volume so the
+      # bind mount (host source tree, no node_modules installed there)
+      # doesn't shadow the dependencies `pnpm install` already put in
+      # the image during build.
+      - website_node_modules:/app/brasaland-web/node_modules
+      - backoffice_node_modules:/app/backoffice/node_modules
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    depends_on:
+      - backend
+    networks:
+      - brasaland-net
+
+  backend:
+    build:
+      context: ./services
+      dockerfile: Dockerfile
+    env_file:
+      - ./.env
+    volumes:
+      # Bind-mount source for --reload; /opt/venv (where dependencies
+      # were installed) lives outside /app/api, so this mount can't
+      # shadow them.
+      - ./services/api:/app/api
+    ports:
+      - "8000:8000"
+    networks:
+      - brasaland-net
+
+networks:
+  brasaland-net:
+    name: brasaland-net
+
+volumes:
+  website_node_modules:
+  backoffice_node_modules:

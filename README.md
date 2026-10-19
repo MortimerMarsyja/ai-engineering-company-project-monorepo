@@ -46,6 +46,38 @@ pnpm test         # both, back-to-back
 
 ---
 
+## Running everything with Docker
+
+`docker-compose.yml` (repo root) runs the whole stack: the FastAPI backend and both Next.js apps (`brasaland-web` + `backoffice`, sharing one container — see `uis/start.sh`).
+
+```bash
+cp .env.example .env     # fill in real values — DATABASE_URL, SECRET_KEY, etc.
+docker compose up --build
+```
+
+- **brasaland-web** → http://localhost:3000
+- **backoffice** → http://localhost:3001
+- **backend (FastAPI)** → http://localhost:8000 (docs at `/docs`)
+
+Other commands:
+
+```bash
+docker compose stop              # stop containers, keep them (and volumes) around
+docker compose down               # stop and remove containers
+docker compose up --build         # rebuild images after a Dockerfile/dependency change
+docker compose logs -f backend    # tail one service's logs
+docker compose config             # validate the compose file (no secrets printed)
+```
+
+Notes:
+
+- `.env` is gitignored — never commit it. `.env.example` has the full list of variables with placeholder values.
+- Both services load their config from this **one root `.env`** (`env_file` in `docker-compose.yml`), not from `services/api/.env` directly — though if that file exists too (bind-mounted in), it only fills in anything the root `.env` left unset, it never overrides it.
+- Source code is bind-mounted for live reload (`--reload` on Uvicorn, `next dev` on both frontends); installed dependencies (`node_modules`, the backend's `/opt/venv`) live outside the mounted paths so the bind mounts can't shadow them.
+- Containers reach each other by **service name** (`http://backend:8000`), never `localhost` — `localhost` inside a container refers to that container itself. The backoffice's browser-side code still points at `http://localhost:8000` (`NEXT_PUBLIC_API_URL`) since the browser runs on the host, outside Docker's network.
+
+---
+
 ## How to think about this monorepo
 
 You are building **one company** across many milestones and projects. Each top-level folder has a **single responsibility** — like a real engineering team repo.

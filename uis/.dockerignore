@@ -1,0 +1,12 @@
+# Applies to the whole uis/ build context (brasaland-web/ and backoffice/).
+**/node_modules
+**/.next
+**/.env
+**/.env.*
+**/*.log
+
+**/.git
+**/.DS_Store
+**/coverage
+**/dist
+**/out

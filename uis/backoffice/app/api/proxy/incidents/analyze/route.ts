@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 
+// See lib/backend-proxy.ts for why BACKEND_INTERNAL_URL takes precedence
+// (this route handler runs server-side, inside the Docker network).
 const BACKEND_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+  process.env.BACKEND_INTERNAL_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:8000/api/v1";
 
 // Multipart upload — forwarded as-is (no JSON Content-Type override),
 // unlike proxyAuthenticated which assumes a JSON body.

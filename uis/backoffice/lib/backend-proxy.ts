@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 
+// BACKEND_INTERNAL_URL is container-to-container (Docker service name as
+// hostname, e.g. http://backend:8000/api/v1) — these route handlers run
+// server-side, so they must never resolve "localhost" to this container
+// itself. NEXT_PUBLIC_API_URL is the browser-facing fallback for local
+// dev outside Docker, where both processes share localhost.
 const BACKEND_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+  process.env.BACKEND_INTERNAL_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:8000/api/v1";
 
 export async function proxyPost(request: Request, endpoint: string) {
   try {

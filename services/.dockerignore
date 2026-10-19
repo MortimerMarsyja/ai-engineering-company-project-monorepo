@@ -1,0 +1,14 @@
+# Applies to the services/ build context (services/api/ today).
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.env
+**/.env.*
+**/tests/
+**/*.log
+
+**/.venv
+**/.git
+**/.DS_Store
+**/.pytest_cache
+**/.coverage
