@@ -13,7 +13,8 @@
     "lint": "next lint",
     "test:front": "pnpm --filter brasaland-backoffice test",
     "test:back": "node scripts/test-backend.mjs",
-    "test": "pnpm test:back && pnpm test:front"
+    "test": "pnpm test:back && pnpm test:front",
+    "test:perf": "pnpm --filter performance-tests test && pnpm --filter performance-tests test:report"
   },
   "dependencies": {
     "next": "^15.3.4",

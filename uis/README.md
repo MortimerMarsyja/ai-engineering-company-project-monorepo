@@ -7,6 +7,7 @@ The projects stored here are:
 - **`brasaland-web`** — the company's public-facing website (landing page, loyalty program registration, locations).
 - **`backoffice`** — the internal admin dashboard for operations management: sales KPIs, order traceability, location performance, and Brasa Points analytics.
 - **`talent-pipeline-tracker`** — talent and recruitment tracking tool.
+- **`performance-tests`** — Playwright + Lighthouse performance audits for `brasaland-web` and `backoffice` production builds; run on demand via `pnpm test:perf`.
 The two main projects stored here are:
 
 - **`website`** — the company's public-facing web presence.

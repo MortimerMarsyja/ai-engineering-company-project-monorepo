@@ -1,0 +1,15 @@
+{
+  "name": "performance-tests",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:report": "node scripts/build-report.mjs",
+    "postinstall": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "lighthouse": "^12.2.1",
+    "playwright-lighthouse": "^4.0.0"
+  }
+}
