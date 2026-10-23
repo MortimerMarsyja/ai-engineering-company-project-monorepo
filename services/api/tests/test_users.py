@@ -87,10 +87,22 @@ class TestRegisterUser:
             data = await _register(client)
 
         assert data["role"] == "user"
-        assert data["email"] == "ana@test.com"
         assert data["is_active"] is True
         assert "created_at" in data
         assert "id" in data
+
+    @pytest.mark.asyncio
+    async def test_registration_response_never_exposes_email(self):
+        """Registration contract: no email in the body (see
+        docs/serialization-audit.md) — the user registered it themselves,
+        so echoing it back adds no value and the frontend never reads it
+        (registerUser's result is discarded by app/register/page.tsx)."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            data = await _register(client)
+
+        assert "email" not in data
 
     @pytest.mark.asyncio
     async def test_response_never_exposes_password(self):

@@ -8,7 +8,7 @@ PUT  /profiles/me   update name, phone and address; only the profile
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.deps import get_current_user
-from app.models.profile import ProfileUpdate
+from app.models.profile import ProfileResponse, ProfileUpdate
 from app.models.schemas import ApiResponse
 from app.services import profiles as profiles_service
 
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/profiles", tags=["profiles"])
 
 
 # ── GET /profiles/me ──────────────────────────────────────
-@router.get("/me", response_model=ApiResponse)
+@router.get("/me", response_model=ApiResponse[ProfileResponse])
 async def get_my_profile(current_user: dict = Depends(get_current_user)):
     """Return the authenticated user's profile.
 
@@ -30,7 +30,7 @@ async def get_my_profile(current_user: dict = Depends(get_current_user)):
 
 
 # ── PUT /profiles/me ──────────────────────────────────────
-@router.put("/me", response_model=ApiResponse)
+@router.put("/me", response_model=ApiResponse[ProfileResponse])
 async def update_my_profile(
     payload: ProfileUpdate,
     current_user: dict = Depends(get_current_user),

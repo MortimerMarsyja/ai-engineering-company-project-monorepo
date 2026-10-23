@@ -37,8 +37,8 @@ def _get_table(db: TinyDB):
     return db.table("suppliers")
 
 
-def _doc_to_response(doc: dict) -> dict:
-    """Convert a TinyDB document (with doc_id) to a SupplierResponse dict."""
+def _doc_to_response(doc: dict) -> SupplierResponse:
+    """Convert a TinyDB document (with doc_id) to a SupplierResponse."""
     return SupplierResponse(
         id=doc.doc_id,
         full_name=doc["full_name"],
@@ -57,11 +57,11 @@ def _doc_to_response(doc: dict) -> dict:
         status=doc.get("status", "active"),
         created_at=doc["created_at"],
         updated_at=doc["updated_at"],
-    ).model_dump(mode="json")
+    )
 
 
 # ── POST /suppliers ───────────────────────────────────────
-@router.post("", response_model=ApiResponse, status_code=201)
+@router.post("", response_model=ApiResponse[SupplierResponse], status_code=201)
 async def create_supplier(
     payload: SupplierCreate,
     current_user: dict = Depends(require_staff),
@@ -93,7 +93,7 @@ async def create_supplier(
 
 
 # ── GET /suppliers ────────────────────────────────────────
-@router.get("", response_model=ApiResponse)
+@router.get("", response_model=ApiResponse[list[SupplierResponse]])
 async def list_suppliers(
     product_category: Optional[ProductCategory] = Query(
         None, description="Filter by product category"
@@ -120,7 +120,7 @@ async def list_suppliers(
 
 
 # ── GET /suppliers/{supplier_id} ──────────────────────────
-@router.get("/{supplier_id}", response_model=ApiResponse)
+@router.get("/{supplier_id}", response_model=ApiResponse[SupplierResponse])
 async def get_supplier(
     supplier_id: int,
     current_user: dict = Depends(require_any_user),
@@ -136,7 +136,7 @@ async def get_supplier(
 
 
 # ── PATCH /suppliers/{supplier_id}/rate ────────────────────
-@router.patch("/{supplier_id}/rate", response_model=ApiResponse)
+@router.patch("/{supplier_id}/rate", response_model=ApiResponse[SupplierResponse])
 async def update_supplier_rate(
     supplier_id: int,
     payload: SupplierRateUpdate,
@@ -162,7 +162,7 @@ async def update_supplier_rate(
 
 
 # ── PATCH /suppliers/{supplier_id}/status ──────────────────
-@router.patch("/{supplier_id}/status", response_model=ApiResponse)
+@router.patch("/{supplier_id}/status", response_model=ApiResponse[SupplierResponse])
 async def update_supplier_status(
     supplier_id: int,
     payload: SupplierStatusUpdate,
@@ -190,7 +190,7 @@ async def update_supplier_status(
 
 
 # ── DELETE /suppliers/{supplier_id} ────────────────────────
-@router.delete("/{supplier_id}", response_model=ApiResponse)
+@router.delete("/{supplier_id}", response_model=ApiResponse[None])
 async def delete_supplier(
     supplier_id: int,
     current_user: dict = Depends(require_staff),

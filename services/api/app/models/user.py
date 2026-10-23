@@ -97,9 +97,40 @@ class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class UserRegisteredResponse(BaseModel):
+    """POST /users response — the newly created resource, minus ``email``.
+
+    Registration/login/recovery responses must not echo back the email or
+    any password field (see docs/serialization-audit.md); general user
+    management (GET/PUT /users/{id}) keeps using UserResponse, which does
+    include email.
+    """
+
+    id: int
+    is_active: bool
+    role: UserRole
+    created_at: str
+    profile: ProfileResponse | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str
+
+
+class LoginData(BaseModel):
+    """POST /auth/login response data — token only.
+
+    No user object: verified via grep that no consumer in this repo reads
+    anything beyond access_token/token_type from the login response
+    (uis/backoffice/lib/auth.ts::loginUser types it as exactly these two
+    fields). Callers fetch identity separately via GET /auth/me.
+    """
+
+    access_token: str
+    token_type: str = "bearer"
 
 
 class ForgotPasswordRequest(BaseModel):

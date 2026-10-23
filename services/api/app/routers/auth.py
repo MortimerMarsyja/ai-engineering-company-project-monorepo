@@ -12,6 +12,7 @@ from app.models.schemas import ApiResponse
 from app.models.user import (
     ChangePasswordRequest,
     ForgotPasswordRequest,
+    LoginData,
     LoginRequest,
     ResetPasswordRequest,
     UserResponse,
@@ -25,9 +26,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/login", response_model=ApiResponse)
+@router.post("/login", response_model=ApiResponse[LoginData])
 async def login(payload: LoginRequest):
-    """Authenticate with email + password and receive a JWT bearer token."""
+    """Authenticate with email + password and receive a JWT bearer token.
+
+    Returns only the token — no user/email in the body (see
+    docs/serialization-audit.md). Callers that need identity call
+    GET /auth/me separately, same as this app's own AppShell already does.
+    """
     doc = users_service.authenticate(payload.email, payload.password)
     if doc is None:
         raise HTTPException(
@@ -36,27 +42,22 @@ async def login(payload: LoginRequest):
     if not doc.get("is_active", True):
         raise HTTPException(status_code=401, detail="User account is inactive")
 
-    user = users_service.get_user_by_id(doc.doc_id)
     token = create_access_token(subject=str(doc.doc_id), role=doc["role"])
 
     return ApiResponse(
         message="Login successful",
-        data={
-            "access_token": token,
-            "token_type": "bearer",
-            "user": user,
-        },
+        data=LoginData(access_token=token, token_type="bearer"),
     )
 
 
 # ── GET /auth/me ──────────────────────────────────────────
-@router.get("/me", response_model=ApiResponse)
+@router.get("/me", response_model=ApiResponse[UserResponse])
 async def me(current_user: dict = Depends(get_current_user)):
     """Return the authenticated user's identity (never their password hash)."""
-    return ApiResponse(data=UserResponse.model_validate(current_user).model_dump())
+    return ApiResponse(data=UserResponse.model_validate(current_user))
 
 
-@router.post("/forgot-password", response_model=ApiResponse)
+@router.post("/forgot-password", response_model=ApiResponse[None])
 async def forgot_password(payload: ForgotPasswordRequest):
     """Send a reset link while returning the same response for every email."""
     user = users_service.get_user_by_email(payload.email)
@@ -80,7 +81,7 @@ async def forgot_password(payload: ForgotPasswordRequest):
     )
 
 
-@router.post("/reset-password", response_model=ApiResponse)
+@router.post("/reset-password", response_model=ApiResponse[None])
 async def reset_password(payload: ResetPasswordRequest):
     """Set a new password using an unexpired, one-time reset token."""
     if not password_resets.consume_token(payload.token, payload.new_password):
@@ -89,7 +90,7 @@ async def reset_password(payload: ResetPasswordRequest):
     return ApiResponse(message="Password reset successfully")
 
 
-@router.post("/change-password", response_model=ApiResponse)
+@router.post("/change-password", response_model=ApiResponse[None])
 async def change_password(
     payload: ChangePasswordRequest,
     current_user: dict = Depends(get_current_user),

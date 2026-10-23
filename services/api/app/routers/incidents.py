@@ -22,10 +22,14 @@ from fastapi.responses import StreamingResponse
 
 from app.core.deps import get_current_user, require_any_user, require_staff
 from app.models.schemas import (
+    AnalyzeSummaryResponse,
+    DataEnvelope,
     IncidentCreate,
+    IncidentMetricsResponse,
     IncidentResponse,
     IncidentStatusUpdate,
     IncidentUpdate,
+    PaginatedResponse,
 )
 from app.services.incidents import (
     analyze,
@@ -49,7 +53,7 @@ _last_analysis: Optional[dict] = None
 
 
 # ── GET /incidents ─────────────────────────────────────────
-@router.get("")
+@router.get("", response_model=PaginatedResponse[IncidentResponse])
 async def list_incidents_route(
     status: str | None = None,
     category: str | None = None,
@@ -84,14 +88,14 @@ async def create_incident_route(
 
 
 # ── GET /incidents/metrics ─────────────────────────────────
-@router.get("/metrics")
+@router.get("/metrics", response_model=DataEnvelope[IncidentMetricsResponse])
 async def get_incident_metrics_route(current_user: dict = Depends(require_staff)):
     """Aggregated incident metrics for leadership."""
     return {"data": get_incident_metrics()}
 
 
 # ── POST /incidents/analyze ────────────────────────────────
-@router.post("/analyze")
+@router.post("/analyze", response_model=DataEnvelope[AnalyzeSummaryResponse])
 async def analyze_incidents(
     file: UploadFile = File(...),
     current_user: dict = Depends(require_any_user),
@@ -158,7 +162,7 @@ async def analyze_incidents(
     _last_analysis = results
 
     summary = results_to_summary_json(results)
-    return {"status": "ok", "data": summary}
+    return {"data": summary}
 
 
 # ── GET /incidents/result/export ───────────────────────────

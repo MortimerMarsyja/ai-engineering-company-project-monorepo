@@ -15,8 +15,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.deps import get_current_user
 from app.models.schemas import (
+    CandidateNote,
     CandidateNoteCreate,
     CandidateResponse,
+    NotesListResponse,
+    PaginatedResponse,
     RecordCreate,
     RecordPatch,
     RecordUpdate,
@@ -27,7 +30,7 @@ router = APIRouter(prefix="/records", tags=["records"])
 
 
 # ── GET /records ──────────────────────────────────────────
-@router.get("")
+@router.get("", response_model=PaginatedResponse[CandidateResponse])
 async def list_records(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -108,7 +111,7 @@ async def delete_record(
 
 
 # ── GET /records/{id}/notes ───────────────────────────────
-@router.get("/{record_id}/notes")
+@router.get("/{record_id}/notes", response_model=NotesListResponse)
 async def get_notes(
     record_id: str,
     current_user: dict = Depends(get_current_user),
@@ -124,7 +127,7 @@ async def get_notes(
 
 
 # ── POST /records/{id}/notes ──────────────────────────────
-@router.post("/{record_id}/notes", status_code=201)
+@router.post("/{record_id}/notes", response_model=CandidateNote, status_code=201)
 async def create_note(
     record_id: str,
     payload: CandidateNoteCreate,

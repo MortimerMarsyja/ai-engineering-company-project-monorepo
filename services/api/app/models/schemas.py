@@ -2,9 +2,11 @@
 
 from datetime import date, datetime, timezone
 from enum import Enum
-from typing import Literal
+from typing import Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+T = TypeVar("T")
 
 
 # ── Health ────────────────────────────────────────────────
@@ -14,11 +16,28 @@ class HealthResponse(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-# ── Generic API response wrapper ──────────────────────────
-class ApiResponse(BaseModel):
+# ── Generic API response wrappers ─────────────────────────
+# ApiResponse[T] keeps the existing {success, message, data} envelope but
+# makes `data`'s shape an explicit, validated part of each route's
+# response_model instead of an untyped dict|list — see
+# docs/serialization-audit.md. DataEnvelope/PaginatedResponse cover the two
+# other envelope shapes already relied on by the frontend (no
+# success/message wrapper): plain `{data}` and `{data, total, page, limit}`.
+class ApiResponse(BaseModel, Generic[T]):
     success: bool = True
     message: str = ""
-    data: dict | list | None = None
+    data: T | None = None
+
+
+class DataEnvelope(BaseModel, Generic[T]):
+    data: T
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    data: list[T]
+    total: int
+    page: int
+    limit: int
 
 
 # ── Example domain models (replace with your company models) ──
@@ -122,6 +141,59 @@ class IncidentResponse(IncidentFields):
 
 # Backward-compatible name for code that uses Incident as the input schema.
 Incident = IncidentCreate
+
+
+class IncidentMetricsResponse(BaseModel):
+    total: int
+    status_counts: dict[str, int]
+    category_counts: dict[str, int]
+    branch_counts: dict[str, int]
+    origin_counts: dict[str, int]
+    avg_satisfaction_score: float | None
+    avg_resolution_seconds: float | None
+
+
+class InvalidBreakdownEntry(BaseModel):
+    rule: str
+    label: str
+    count: int
+
+
+class CategoryBreakdownEntry(BaseModel):
+    category: str
+    count: int
+    percentage: float
+
+
+class StatusBreakdownEntry(BaseModel):
+    status: str
+    count: int
+    percentage: float
+
+
+class ScoreDistributionEntry(BaseModel):
+    score: int
+    label: str
+    count: int
+
+
+class SatisfactionIndex(BaseModel):
+    total_closed: int
+    scored_cases: int
+    average_score: float
+    score_distribution: list[ScoreDistributionEntry]
+
+
+class AnalyzeSummaryResponse(BaseModel):
+    total_records: int
+    valid_records: int
+    invalid_records: int
+    persisted_records: int
+    invalid_breakdown: list[InvalidBreakdownEntry]
+    category_breakdown: list[CategoryBreakdownEntry]
+    status_breakdown: list[StatusBreakdownEntry]
+    satisfaction_index: SatisfactionIndex
+    note: str | None = None
 
 
 # ── Brasa Points registration ────────────────────────────
@@ -306,6 +378,15 @@ class CandidateNote(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class NotesMeta(BaseModel):
+    total: int
+
+
+class NotesListResponse(BaseModel):
+    data: list[CandidateNote]
+    meta: NotesMeta
 
 
 class CandidateResponse(BaseModel):

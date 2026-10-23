@@ -40,7 +40,12 @@ async def _register(client: AsyncClient, email: str, **overrides) -> dict:
 
 class TestLogin:
     @pytest.mark.asyncio
-    async def test_login_success_returns_token_and_user(self):
+    async def test_login_success_returns_token_only(self):
+        """Login returns only the token — no user object (no email, no
+        password fields) in the body. See docs/serialization-audit.md:
+        no consumer in the repo reads anything beyond access_token/
+        token_type from this response; identity is fetched separately via
+        GET /auth/me."""
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
@@ -54,9 +59,7 @@ class TestLogin:
         data = resp.json()["data"]
         assert data["token_type"] == "bearer"
         assert isinstance(data["access_token"], str) and data["access_token"]
-        assert data["user"]["email"] == "ana@test.com"
-        assert data["user"]["role"] == "user"
-        assert "hashed_password" not in data["user"]
+        assert set(data.keys()) == {"access_token", "token_type"}
 
     @pytest.mark.asyncio
     async def test_login_wrong_password(self):

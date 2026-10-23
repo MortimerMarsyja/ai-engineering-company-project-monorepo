@@ -14,20 +14,21 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.deps import get_current_user, require_staff
 from app.models.schemas import ApiResponse
-from app.models.user import UserCreate, UserUpdate
+from app.models.user import UserCreate, UserRegisteredResponse, UserResponse, UserUpdate
 from app.services import users as users_service
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 
 # ── POST /users ───────────────────────────────────────────
-@router.post("/", response_model=ApiResponse, status_code=201)
+@router.post("/", response_model=ApiResponse[UserRegisteredResponse], status_code=201)
 async def register_user(payload: UserCreate):
     """Register a new user.
 
     The password is hashed before storage and the role defaults to
     "user". Optional profile fields (name, phone, address) create the
-    linked Profile in the same operation.
+    linked Profile in the same operation. The response never echoes the
+    email back (registration contract — see docs/serialization-audit.md).
     """
     try:
         user = users_service.create_user(payload)
@@ -38,7 +39,7 @@ async def register_user(payload: UserCreate):
 
 
 # ── GET /users ────────────────────────────────────────────
-@router.get("/", response_model=ApiResponse)
+@router.get("/", response_model=ApiResponse[list[UserResponse]])
 async def list_users(current_user: dict = Depends(get_current_user)):
     """List all users (requires authentication)."""
     users = users_service.list_users()
@@ -49,7 +50,7 @@ async def list_users(current_user: dict = Depends(get_current_user)):
 
 
 # ── GET /users/{user_id} ──────────────────────────────────
-@router.get("/{user_id}", response_model=ApiResponse)
+@router.get("/{user_id}", response_model=ApiResponse[UserResponse])
 async def get_user(user_id: int, current_user: dict = Depends(get_current_user)):
     """Get a single user by ID (requires authentication)."""
     user = users_service.get_user_by_id(user_id)
@@ -59,7 +60,7 @@ async def get_user(user_id: int, current_user: dict = Depends(get_current_user))
 
 
 # ── PUT /users/{user_id} ──────────────────────────────────
-@router.put("/{user_id}", response_model=ApiResponse)
+@router.put("/{user_id}", response_model=ApiResponse[UserResponse])
 async def update_user(
     user_id: int,
     payload: UserUpdate,
@@ -81,7 +82,7 @@ async def update_user(
 
 
 # ── DELETE /users/{user_id} ───────────────────────────────
-@router.delete("/{user_id}", response_model=ApiResponse)
+@router.delete("/{user_id}", response_model=ApiResponse[None])
 async def delete_user(user_id: int, current_user: dict = Depends(get_current_user)):
     """Delete a user and its linked profile (requires authentication)."""
     if not users_service.delete_user(user_id):
