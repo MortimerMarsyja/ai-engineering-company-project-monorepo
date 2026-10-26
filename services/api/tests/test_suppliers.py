@@ -9,6 +9,7 @@ from httpx import ASGITransport, AsyncClient
 from pathlib import Path
 from tinydb import TinyDB
 
+from app.core import cache
 from app.core.security import create_access_token
 from app.main import app
 
@@ -62,6 +63,9 @@ def _patch_db_path(monkeypatch):
     _clean_test_db()
     AUTH_HEADERS.clear()
     AUTH_HEADERS["Authorization"] = f"Bearer {_seed_staff_token()}"
+    # The suppliers list is cached in-process (see docs/cache-evaluation.md);
+    # without this, a stale entry from a previous test could leak in here.
+    cache.invalidate_prefix("")
     yield
     _clean_test_db()
 

@@ -21,3 +21,6 @@ out/
 dist/
 node_modules/
 Build cache
+
+# Benchmark results (services/api/benchmark_endpoints.py) — local diagnostic output
+services/api/benchmarks/results/

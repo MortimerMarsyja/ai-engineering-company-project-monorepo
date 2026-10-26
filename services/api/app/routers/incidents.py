@@ -20,6 +20,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
+from app.core import cache
 from app.core.deps import get_current_user, require_any_user, require_staff
 from app.models.schemas import (
     AnalyzeSummaryResponse,
@@ -50,6 +51,12 @@ router = APIRouter(prefix="/incidents", tags=["incidents"])
 
 # In-memory cache for the last analysis (per session / global for simplicity)
 _last_analysis: Optional[dict] = None
+
+# See docs/cache-evaluation.md: /incidents/metrics is a heavy in-memory
+# aggregation over a dashboard that tolerates some staleness, so it's
+# cached with a short TTL and invalidated on any incident write.
+_METRICS_CACHE_KEY = "incidents:metrics"
+_METRICS_CACHE_TTL_SECONDS = 45
 
 
 # ── GET /incidents ─────────────────────────────────────────
@@ -84,14 +91,20 @@ async def create_incident_route(
     current_user: dict = Depends(get_current_user),
 ):
     """Log a new incident (branch staff, HQ, or a customer-reported issue)."""
-    return create_incident(payload)
+    incident = create_incident(payload)
+    cache.invalidate_prefix(_METRICS_CACHE_KEY)
+    return incident
 
 
 # ── GET /incidents/metrics ─────────────────────────────────
 @router.get("/metrics", response_model=DataEnvelope[IncidentMetricsResponse])
 async def get_incident_metrics_route(current_user: dict = Depends(require_staff)):
-    """Aggregated incident metrics for leadership."""
-    return {"data": get_incident_metrics()}
+    """Aggregated incident metrics for leadership (cached, see docs/cache-evaluation.md)."""
+    metrics = cache.get(_METRICS_CACHE_KEY)
+    if metrics is None:
+        metrics = get_incident_metrics()
+        cache.set(_METRICS_CACHE_KEY, metrics, _METRICS_CACHE_TTL_SECONDS)
+    return {"data": metrics}
 
 
 # ── POST /incidents/analyze ────────────────────────────────
@@ -215,6 +228,7 @@ async def patch_incident(
     incident = update_incident(incident_id, payload)
     if incident is None:
         raise HTTPException(status_code=404, detail=f"Incident {incident_id} not found")
+    cache.invalidate_prefix(_METRICS_CACHE_KEY)
     return incident
 
 
@@ -232,4 +246,5 @@ async def patch_incident_status(
         raise HTTPException(status_code=400, detail=str(exc))
     if incident is None:
         raise HTTPException(status_code=404, detail=f"Incident {incident_id} not found")
+    cache.invalidate_prefix(_METRICS_CACHE_KEY)
     return incident
