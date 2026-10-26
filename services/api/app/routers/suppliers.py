@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from tinydb import TinyDB, where
 
+from app.core import cache
 from app.core.deps import require_any_user, require_staff
 from app.models.schemas import (
     ApiResponse,
@@ -20,6 +21,12 @@ from app.models.schemas import (
 )
 
 router = APIRouter(prefix="/suppliers", tags=["suppliers"])
+
+# See docs/cache-evaluation.md: the supplier directory changes rarely
+# (occasional create/rate/status updates), so the list is cached with a
+# longer TTL and invalidated on any write. Cached per filter combination.
+_LIST_CACHE_PREFIX = "suppliers:list"
+_LIST_CACHE_TTL_SECONDS = 180
 
 # ── Database ──────────────────────────────────────────────
 # Shared TinyDB instance (same path used by seed.py)
@@ -86,6 +93,7 @@ async def create_supplier(
         doc_id = table.insert(data)
         doc = table.get(doc_id=doc_id)
 
+    cache.invalidate_prefix(_LIST_CACHE_PREFIX)
     return ApiResponse(
         message="Supplier registered successfully",
         data=_doc_to_response(doc),
@@ -103,7 +111,12 @@ async def list_suppliers(
     ),
     current_user: dict = Depends(require_any_user),
 ):
-    """List all suppliers, optionally filtered by product category and/or status."""
+    """List all suppliers, optionally filtered by product category and/or status (cached, see docs/cache-evaluation.md)."""
+    cache_key = f"{_LIST_CACHE_PREFIX}:{product_category}:{status}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     with _get_db() as db:
         results = _get_table(db).all()
 
@@ -113,10 +126,12 @@ async def list_suppliers(
     if status is not None:
         results = [doc for doc in results if doc.get("status") == status.value]
 
-    return ApiResponse(
+    response = ApiResponse(
         message=f"Found {len(results)} supplier(s)",
         data=[_doc_to_response(doc) for doc in results],
     )
+    cache.set(cache_key, response, _LIST_CACHE_TTL_SECONDS)
+    return response
 
 
 # ── GET /suppliers/{supplier_id} ──────────────────────────
@@ -155,6 +170,7 @@ async def update_supplier_rate(
 
         updated_doc = table.get(doc_id=supplier_id)
 
+    cache.invalidate_prefix(_LIST_CACHE_PREFIX)
     return ApiResponse(
         message="Supplier rate updated successfully",
         data=_doc_to_response(updated_doc),
@@ -183,6 +199,7 @@ async def update_supplier_status(
 
         updated_doc = table.get(doc_id=supplier_id)
 
+    cache.invalidate_prefix(_LIST_CACHE_PREFIX)
     return ApiResponse(
         message=f"Supplier status changed to {payload.status.value}",
         data=_doc_to_response(updated_doc),
@@ -205,4 +222,5 @@ async def delete_supplier(
 
         table.remove(doc_ids=[supplier_id])
 
+    cache.invalidate_prefix(_LIST_CACHE_PREFIX)
     return ApiResponse(message=f"Supplier {supplier_id} deleted successfully")

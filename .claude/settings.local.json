@@ -56,7 +56,15 @@
       "Bash(./.venv/bin/python -m pytest --cov=app --cov-report=term-missing -q)",
       "Bash(pnpm -v)",
       "Bash(pnpm add *)",
-      "Bash(pnpm test *)"
+      "Bash(pnpm test *)",
+      "Bash(.venv/bin/python benchmark_endpoints.py --label before --requests 10)",
+      "Bash(python3 -m json.tool)",
+      "Bash(.venv/bin/python benchmark_endpoints.py --label before2 --requests 10)",
+      "Bash(.venv/bin/python benchmark_endpoints.py --label after --requests 10)",
+      "Bash(.venv/bin/python benchmark_endpoints.py --compare before2 after)",
+      "Bash(xargs -I{} grep -l \"db.json\\\\|__pycache__\" {})",
+      "Bash(.venv/bin/python -m pytest tests/ -q)",
+      "Bash(.venv/bin/python benchmark_endpoints.py --label with_cache --requests 15)"
     ],
     "deny": [],
     "ask": [],

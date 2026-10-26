@@ -26,6 +26,7 @@ seed = "seed:main"
 seed-users = "seed_users:main"
 seed-incidents = "seed_incidents:main"
 seed-inventory = "seed_inventory:main"
+benchmark = "benchmark_endpoints:main"
 
 [project.optional-dependencies]
 test = [
