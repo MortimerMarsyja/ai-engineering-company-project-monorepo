@@ -64,7 +64,11 @@
       "Bash(.venv/bin/python benchmark_endpoints.py --compare before2 after)",
       "Bash(xargs -I{} grep -l \"db.json\\\\|__pycache__\" {})",
       "Bash(.venv/bin/python -m pytest tests/ -q)",
-      "Bash(.venv/bin/python benchmark_endpoints.py --label with_cache --requests 15)"
+      "Bash(.venv/bin/python benchmark_endpoints.py --label with_cache --requests 15)",
+      "Read(//Users/laxosceles/Documents/4geeks/**)",
+      "Read(//Users/laxosceles/Downloads/**)",
+      "Bash(python3 -c \"import jsonschema\")",
+      "Bash(npx --yes ajv-cli --version)"
     ],
     "deny": [],
     "ask": [],

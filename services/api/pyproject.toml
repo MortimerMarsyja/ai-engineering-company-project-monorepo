@@ -27,12 +27,16 @@ seed-users = "seed_users:main"
 seed-incidents = "seed_incidents:main"
 seed-inventory = "seed_inventory:main"
 benchmark = "benchmark_endpoints:main"
+generate-events = "generate_events:main"
 
 [project.optional-dependencies]
 test = [
     "pytest>=8.0",
     "pytest-asyncio>=0.25.0",
     "pytest-cov>=5.0",
+]
+codegen = [
+    "datamodel-code-generator>=0.25",
 ]
 
 [tool.hatch.build.targets.wheel]

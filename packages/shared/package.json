@@ -3,9 +3,14 @@
   "version": "0.0.1",
   "private": true,
   "description": "Shared types for AI Engineering transversal projects",
-  "main": "index.ts",
-  "types": "index.ts",
-  "scripts": {},
+  "main": "types/index.ts",
+  "types": "types/index.ts",
+  "scripts": {
+    "generate:events": "json2ts -i ../../docs/event-schemas.json -o types/events.generated.ts --unreachableDefinitions"
+  },
+  "devDependencies": {
+    "json-schema-to-typescript": "^15.0.4"
+  },
   "keywords": [
     "types",
     "shared"
