@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(python3 /private/tmp/claude-501/-Users-laxosceles-Documents-4geeks-ai-engineering-company-project-monorepo/5c3f303b-2c4c-48bc-958c-d5770f0ef4f5/scratchpad/gen_schema.py)",
+      "Bash(python3 -c ' *)",
+      "Bash(npx --yes ajv-cli compile -s docs/event-schemas.json)",
+      "Bash(npx --yes ajv-cli help compile)",
+      "Bash(mkdir -p /tmp/ajvcheck)",
+      "Bash(npm init *)",
+      "Bash(npm install *)",
+      "Bash(npx --yes ajv-cli compile --spec=draft7 -c ./formats.js -s /Users/laxosceles/Documents/4geeks/ai-engineering-company-project-monorepo/docs/event-schemas.json)",
+      "Bash(python3 gen_samples.py)",
+      "Bash(npx --yes ajv-cli validate --spec=draft7 -c ./formats.js -s /Users/laxosceles/Documents/4geeks/ai-engineering-company-project-monorepo/docs/event-schemas.json -d \"/private/tmp/claude-501/-Users-laxosceles-Documents-4geeks-ai-engineering-company-project-monorepo/5c3f303b-2c4c-48bc-958c-d5770f0ef4f5/scratchpad/samples/*.json\")"
+    ]
+  }
+}

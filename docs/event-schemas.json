@@ -1,0 +1,1836 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://brasaland.internal/schemas/event-schemas.json",
+  "title": "Brasaland Telemetry Event Schemas",
+  "description": "Contrato de eventos de telemetria para Brasaland Digital (Fase 2). Ver docs/event-envelope.md para la documentacion completa de cada campo, las decisiones de diseno y las limitaciones conocidas.",
+  "definitions": {
+    "envelopeFields": {
+      "eventId": {
+        "type": "string",
+        "format": "uuid",
+        "description": "Identificador unico del evento (UUID v4), generado al capturarlo."
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Momento del hecho, ISO 8601 / RFC3339 con zona (p.ej. 2026-10-28T15:04:05.123Z)."
+      },
+      "sessionId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "UUID de sesion de navegacion (concepto nuevo de analitica, sin equivalente en el backend). Null reservado para eventos originados por procesos sin navegador."
+      },
+      "userId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Id interno del usuario autenticado (stringified). Null cuando no hay identidad resuelta (p.ej. login_failed, vistas pre-autenticacion)."
+      },
+      "schemaVersion": {
+        "type": "string",
+        "pattern": "^\\d+\\.\\d+\\.\\d+$",
+        "description": "Version semver del esquema de properties para este event_type."
+      },
+      "requestId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Id de correlacion con la peticion HTTP que origino el evento. Null si no existe (hoy no hay middleware de request-id) o si el evento no tiene peticion asociada."
+      }
+    },
+    "events": {
+      "inbound_order_created": {
+        "type": "object",
+        "title": "inbound_order_created",
+        "description": "[Inventario | Obligatorio] Un local registra la llegada de mercancia de un proveedor (POST /inventory/orders/inbound, tras insertar InboundStock).",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "inbound_order_created"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "location_id",
+              "country",
+              "product_id",
+              "product_category",
+              "quantity",
+              "unit",
+              "currency",
+              "order_id",
+              "supplier_id"
+            ],
+            "properties": {
+              "location_id": {
+                "type": "string",
+                "pattern": "^(CO|US)-[A-Z_]+$",
+                "description": "Identificador sintetico 'COUNTRY-CITY' (p.ej. CO-MEDELLIN). No es una columna existente; ver docs/event-envelope.md section 6."
+              },
+              "country": {
+                "type": "string",
+                "enum": [
+                  "CO",
+                  "US"
+                ],
+                "description": "Pais del local, codigo ISO corto."
+              },
+              "product_id": {
+                "type": "string",
+                "description": "Id del producto (MenuItem.id), como string."
+              },
+              "product_category": {
+                "type": "string",
+                "enum": [
+                  "Meat",
+                  "Produce",
+                  "Beverages",
+                  "Dairy",
+                  "Seafood",
+                  "Spices",
+                  "Other"
+                ],
+                "description": "Categoria del producto."
+              },
+              "quantity": {
+                "type": "number",
+                "description": "Cantidad recibida en la orden de entrada.",
+                "exclusiveMinimum": 0
+              },
+              "unit": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20,
+                "description": "Unidad de medida (p.ej. kg)."
+              },
+              "currency": {
+                "type": "string",
+                "enum": [
+                  "COP",
+                  "USD"
+                ],
+                "description": "Moneda del local, derivada de country (CO->COP, US->USD)."
+              },
+              "order_id": {
+                "type": "string",
+                "description": "Id de la fila InboundStock creada."
+              },
+              "supplier_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Id del proveedor (null: InboundStock.supplier_id es opcional)."
+              }
+            },
+            "description": "Propiedades especificas de inbound_order_created."
+          }
+        }
+      },
+      "outbound_order_created": {
+        "type": "object",
+        "title": "outbound_order_created",
+        "description": "[Inventario | Obligatorio] Un local registra consumo de ingredientes en preparacion (POST /inventory/orders/outbound con reason de consumo normal, no merma).",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "outbound_order_created"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "location_id",
+              "country",
+              "product_id",
+              "product_category",
+              "quantity",
+              "unit",
+              "currency",
+              "order_id",
+              "reason"
+            ],
+            "properties": {
+              "location_id": {
+                "type": "string",
+                "pattern": "^(CO|US)-[A-Z_]+$",
+                "description": "Identificador sintetico 'COUNTRY-CITY' (p.ej. CO-MEDELLIN). No es una columna existente; ver docs/event-envelope.md section 6."
+              },
+              "country": {
+                "type": "string",
+                "enum": [
+                  "CO",
+                  "US"
+                ],
+                "description": "Pais del local, codigo ISO corto."
+              },
+              "product_id": {
+                "type": "string",
+                "description": "Id del producto (MenuItem.id), como string."
+              },
+              "product_category": {
+                "type": "string",
+                "enum": [
+                  "Meat",
+                  "Produce",
+                  "Beverages",
+                  "Dairy",
+                  "Seafood",
+                  "Spices",
+                  "Other"
+                ],
+                "description": "Categoria del producto."
+              },
+              "quantity": {
+                "type": "number",
+                "description": "Cantidad consumida en la orden de salida.",
+                "exclusiveMinimum": 0
+              },
+              "unit": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20,
+                "description": "Unidad de medida (p.ej. kg)."
+              },
+              "currency": {
+                "type": "string",
+                "enum": [
+                  "COP",
+                  "USD"
+                ],
+                "description": "Moneda del local, derivada de country (CO->COP, US->USD)."
+              },
+              "order_id": {
+                "type": "string",
+                "description": "Id de la fila StockExit creada."
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "kitchen_use",
+                  "transfer",
+                  "other"
+                ],
+                "description": "Motivo de salida no-merma. Los 3 valores de merma se excluyen a proposito (ver docs/event-envelope.md section 6)."
+              }
+            },
+            "description": "Propiedades especificas de outbound_order_created."
+          }
+        }
+      },
+      "stock_waste_registered": {
+        "type": "object",
+        "title": "stock_waste_registered",
+        "description": "[Inventario | Obligatorio] Un local registra merma (vencido, error de cocina o perdida/robo) en vez de outbound_order_created (mutuamente excluyentes sobre la misma fila StockExit).",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "stock_waste_registered"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "location_id",
+              "country",
+              "product_id",
+              "product_category",
+              "quantity",
+              "unit",
+              "currency",
+              "order_id",
+              "reason"
+            ],
+            "properties": {
+              "location_id": {
+                "type": "string",
+                "pattern": "^(CO|US)-[A-Z_]+$",
+                "description": "Identificador sintetico 'COUNTRY-CITY' (p.ej. CO-MEDELLIN). No es una columna existente; ver docs/event-envelope.md section 6."
+              },
+              "country": {
+                "type": "string",
+                "enum": [
+                  "CO",
+                  "US"
+                ],
+                "description": "Pais del local, codigo ISO corto."
+              },
+              "product_id": {
+                "type": "string",
+                "description": "Id del producto (MenuItem.id), como string."
+              },
+              "product_category": {
+                "type": "string",
+                "enum": [
+                  "Meat",
+                  "Produce",
+                  "Beverages",
+                  "Dairy",
+                  "Seafood",
+                  "Spices",
+                  "Other"
+                ],
+                "description": "Categoria del producto."
+              },
+              "quantity": {
+                "type": "number",
+                "description": "Cantidad perdida/desperdiciada.",
+                "exclusiveMinimum": 0
+              },
+              "unit": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20,
+                "description": "Unidad de medida (p.ej. kg)."
+              },
+              "currency": {
+                "type": "string",
+                "enum": [
+                  "COP",
+                  "USD"
+                ],
+                "description": "Moneda del local, derivada de country (CO->COP, US->USD)."
+              },
+              "order_id": {
+                "type": "string",
+                "description": "Id de la fila StockExit creada."
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "expired",
+                  "kitchen_error",
+                  "theft_suspected"
+                ],
+                "description": "Causa exacta de merma exigida por el briefing."
+              }
+            },
+            "description": "Propiedades especificas de stock_waste_registered."
+          }
+        }
+      },
+      "stock_threshold_triggered": {
+        "type": "object",
+        "title": "stock_threshold_triggered",
+        "description": "[Inventario | Obligatorio] El stock de un producto cae por debajo del minimo configurado para ese local. NOTA: no existe hoy un campo minimum_stock en el modelo; este es el contrato objetivo (ver docs/event-envelope.md section 8).",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "stock_threshold_triggered"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "location_id",
+              "country",
+              "product_id",
+              "product_category",
+              "quantity",
+              "unit",
+              "currency",
+              "minimum_stock"
+            ],
+            "properties": {
+              "location_id": {
+                "type": "string",
+                "pattern": "^(CO|US)-[A-Z_]+$",
+                "description": "Identificador sintetico 'COUNTRY-CITY' (p.ej. CO-MEDELLIN). No es una columna existente; ver docs/event-envelope.md section 6."
+              },
+              "country": {
+                "type": "string",
+                "enum": [
+                  "CO",
+                  "US"
+                ],
+                "description": "Pais del local, codigo ISO corto."
+              },
+              "product_id": {
+                "type": "string",
+                "description": "Id del producto (MenuItem.id), como string."
+              },
+              "product_category": {
+                "type": "string",
+                "enum": [
+                  "Meat",
+                  "Produce",
+                  "Beverages",
+                  "Dairy",
+                  "Seafood",
+                  "Spices",
+                  "Other"
+                ],
+                "description": "Categoria del producto."
+              },
+              "quantity": {
+                "type": "number",
+                "description": "Stock actual en el momento del disparo.",
+                "minimum": 0
+              },
+              "unit": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20,
+                "description": "Unidad de medida (p.ej. kg)."
+              },
+              "currency": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "COP",
+                      "USD"
+                    ],
+                    "description": "Moneda del local, derivada de country (CO->COP, US->USD)."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Moneda del local. Null cuando el evento no representa una transaccion monetaria."
+              },
+              "minimum_stock": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "Umbral minimo configurado para ese local/producto."
+              }
+            },
+            "description": "Propiedades especificas de stock_threshold_triggered."
+          }
+        }
+      },
+      "direct_stock_edit_rejected": {
+        "type": "object",
+        "title": "direct_stock_edit_rejected",
+        "description": "[Inventario | Obligatorio] Un usuario intenta modificar el stock directamente (fuera de una orden) y el sistema lo rechaza. NOTA: hoy el unico mecanismo real es el 422 de Pydantic (extra=forbid); no hay un discriminador de negocio dedicado (ver docs/event-envelope.md section 8).",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "direct_stock_edit_rejected"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "location_id",
+              "country",
+              "product_id",
+              "product_category",
+              "quantity",
+              "unit",
+              "currency",
+              "endpoint",
+              "rejected_field",
+              "http_status"
+            ],
+            "properties": {
+              "location_id": {
+                "type": "string",
+                "pattern": "^(CO|US)-[A-Z_]+$",
+                "description": "Identificador sintetico 'COUNTRY-CITY' (p.ej. CO-MEDELLIN). No es una columna existente; ver docs/event-envelope.md section 6."
+              },
+              "country": {
+                "type": "string",
+                "enum": [
+                  "CO",
+                  "US"
+                ],
+                "description": "Pais del local, codigo ISO corto."
+              },
+              "product_id": {
+                "type": "string",
+                "description": "Id del producto (MenuItem.id), como string."
+              },
+              "product_category": {
+                "type": "string",
+                "enum": [
+                  "Meat",
+                  "Produce",
+                  "Beverages",
+                  "Dairy",
+                  "Seafood",
+                  "Spices",
+                  "Other"
+                ],
+                "description": "Categoria del producto."
+              },
+              "quantity": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "description": "Valor que el usuario intento fijar directamente (null si no es extraible del payload rechazado).",
+                    "exclusiveMinimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Valor que el usuario intento fijar directamente (null si no es extraible del payload rechazado)."
+              },
+              "unit": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20,
+                    "description": "Unidad de medida (p.ej. kg)."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Unidad de medida (null si no se pudo extraer del payload rechazado)."
+              },
+              "currency": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "COP",
+                      "USD"
+                    ],
+                    "description": "Moneda del local, derivada de country (CO->COP, US->USD)."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Moneda del local. Null cuando el evento no representa una transaccion monetaria."
+              },
+              "endpoint": {
+                "type": "string",
+                "description": "Ruta donde se intento el rechazo, p.ej. /inventory/products."
+              },
+              "rejected_field": {
+                "type": "string",
+                "description": "Campo rechazado por extra=forbid, p.ej. current_stock."
+              },
+              "http_status": {
+                "type": "integer",
+                "enum": [
+                  422
+                ],
+                "description": "Codigo HTTP devuelto."
+              }
+            },
+            "description": "Propiedades especificas de direct_stock_edit_rejected."
+          }
+        }
+      },
+      "ingredient_price_variance_detected": {
+        "type": "object",
+        "title": "ingredient_price_variance_detected",
+        "description": "[Inventario | Obligatorio] El costo unitario de una orden de entrada varia mas de un umbral respecto al historico del mismo producto/proveedor. NOTA: InboundStock no tiene hoy ningun campo de costo (ver docs/event-envelope.md section 8).",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "ingredient_price_variance_detected"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "location_id",
+              "country",
+              "product_id",
+              "product_category",
+              "quantity",
+              "unit",
+              "currency",
+              "order_id",
+              "supplier_id",
+              "unit_cost_actual",
+              "unit_cost_historical",
+              "variance_pct",
+              "variance_threshold_pct"
+            ],
+            "properties": {
+              "location_id": {
+                "type": "string",
+                "pattern": "^(CO|US)-[A-Z_]+$",
+                "description": "Identificador sintetico 'COUNTRY-CITY' (p.ej. CO-MEDELLIN). No es una columna existente; ver docs/event-envelope.md section 6."
+              },
+              "country": {
+                "type": "string",
+                "enum": [
+                  "CO",
+                  "US"
+                ],
+                "description": "Pais del local, codigo ISO corto."
+              },
+              "product_id": {
+                "type": "string",
+                "description": "Id del producto (MenuItem.id), como string."
+              },
+              "product_category": {
+                "type": "string",
+                "enum": [
+                  "Meat",
+                  "Produce",
+                  "Beverages",
+                  "Dairy",
+                  "Seafood",
+                  "Spices",
+                  "Other"
+                ],
+                "description": "Categoria del producto."
+              },
+              "quantity": {
+                "type": "number",
+                "description": "Cantidad de la orden de entrada cuyo costo varia.",
+                "exclusiveMinimum": 0
+              },
+              "unit": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20,
+                "description": "Unidad de medida (p.ej. kg)."
+              },
+              "currency": {
+                "type": "string",
+                "enum": [
+                  "COP",
+                  "USD"
+                ],
+                "description": "Moneda del local, derivada de country (CO->COP, US->USD)."
+              },
+              "order_id": {
+                "type": "string",
+                "description": "Id de la fila InboundStock cuyo costo disparo la alerta."
+              },
+              "supplier_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Id del proveedor."
+              },
+              "unit_cost_actual": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "Costo unitario de esta orden."
+              },
+              "unit_cost_historical": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "Costo unitario historico de referencia para el mismo producto/proveedor."
+              },
+              "variance_pct": {
+                "type": "number",
+                "description": "Variacion porcentual entre unit_cost_actual y unit_cost_historical."
+              },
+              "variance_threshold_pct": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "Umbral usado para disparar el evento (p.ej. 10)."
+              }
+            },
+            "description": "Propiedades especificas de ingredient_price_variance_detected."
+          }
+        }
+      },
+      "inbound_order_rejected": {
+        "type": "object",
+        "title": "inbound_order_rejected",
+        "description": "[Inventario | Oportunidad identificada] Una orden de entrada es rechazada por el backend antes de persistirse (desajuste de sede o producto inexistente). inventory.py:126-130.",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "inbound_order_rejected"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "product_id",
+              "location_id",
+              "attempted_country",
+              "attempted_city",
+              "rejection_reason",
+              "http_status"
+            ],
+            "properties": {
+              "product_id": {
+                "type": "string",
+                "description": "Id de producto del intento."
+              },
+              "location_id": {
+                "type": "string",
+                "pattern": "^(CO|US)-[A-Z_]+$",
+                "description": "Sede intentada (sintetico)."
+              },
+              "attempted_country": {
+                "type": "string",
+                "enum": [
+                  "CO",
+                  "US"
+                ]
+              },
+              "attempted_city": {
+                "type": "string",
+                "minLength": 1
+              },
+              "rejection_reason": {
+                "type": "string",
+                "enum": [
+                  "location_mismatch",
+                  "product_not_found"
+                ]
+              },
+              "http_status": {
+                "type": "integer",
+                "enum": [
+                  404,
+                  422
+                ]
+              }
+            },
+            "description": "Propiedades especificas de inbound_order_rejected."
+          }
+        }
+      },
+      "outbound_order_rejected": {
+        "type": "object",
+        "title": "outbound_order_rejected",
+        "description": "[Inventario | Oportunidad identificada] Una orden de salida es rechazada por el backend antes de persistirse (desajuste de sede, producto inexistente o stock insuficiente). inventory.py:148-163.",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "outbound_order_rejected"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "product_id",
+              "location_id",
+              "attempted_country",
+              "attempted_city",
+              "requested_quantity",
+              "available_quantity",
+              "unit",
+              "rejection_reason",
+              "http_status"
+            ],
+            "properties": {
+              "product_id": {
+                "type": "string"
+              },
+              "location_id": {
+                "type": "string",
+                "pattern": "^(CO|US)-[A-Z_]+$"
+              },
+              "attempted_country": {
+                "type": "string",
+                "enum": [
+                  "CO",
+                  "US"
+                ]
+              },
+              "attempted_city": {
+                "type": "string",
+                "minLength": 1
+              },
+              "requested_quantity": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "available_quantity": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "description": "Null si el rechazo fue por location_mismatch/product_not_found (nunca se calcula disponibilidad en esa rama)."
+              },
+              "unit": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20
+              },
+              "rejection_reason": {
+                "type": "string",
+                "enum": [
+                  "location_mismatch",
+                  "product_not_found",
+                  "insufficient_stock"
+                ]
+              },
+              "http_status": {
+                "type": "integer",
+                "enum": [
+                  400,
+                  404,
+                  422
+                ]
+              }
+            },
+            "description": "Propiedades especificas de outbound_order_rejected."
+          }
+        }
+      },
+      "inventory_products_viewed": {
+        "type": "object",
+        "title": "inventory_products_viewed",
+        "description": "[Inventario | Oportunidad identificada] El usuario visualiza el listado de productos (GET /inventory/products resuelto con exito).",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "inventory_products_viewed"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "product_count",
+              "response_time_ms",
+              "cache_hit"
+            ],
+            "properties": {
+              "product_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "response_time_ms": {
+                "type": "number",
+                "minimum": 0
+              },
+              "cache_hit": {
+                "type": "boolean",
+                "description": "Siempre false hoy: este endpoint no esta cacheado (docs/cache-evaluation.md)."
+              }
+            },
+            "description": "Propiedades especificas de inventory_products_viewed."
+          }
+        }
+      },
+      "login_failed": {
+        "type": "object",
+        "title": "login_failed",
+        "description": "[Autenticacion | Oportunidad identificada] POST /auth/login responde 401 por credenciales incorrectas o cuenta inactiva (auth.py:37-43).",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "login_failed"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "failure_reason",
+              "email_hash"
+            ],
+            "properties": {
+              "failure_reason": {
+                "type": "string",
+                "enum": [
+                  "invalid_credentials",
+                  "inactive_account"
+                ]
+              },
+              "email_hash": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$",
+                "description": "SHA-256 hex del email en minusculas. Seudonimizado, no anonimo."
+              }
+            },
+            "description": "Propiedades especificas de login_failed."
+          }
+        }
+      },
+      "login_succeeded": {
+        "type": "object",
+        "title": "login_succeeded",
+        "description": "[Autenticacion | Oportunidad identificada] POST /auth/login emite un access_token con exito (auth.py:45-50).",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "login_succeeded"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role"
+            ],
+            "properties": {
+              "role": {
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "manager",
+                  "user"
+                ]
+              }
+            },
+            "description": "Propiedades especificas de login_succeeded."
+          }
+        }
+      },
+      "session_expired": {
+        "type": "object",
+        "title": "session_expired",
+        "description": "[Autenticacion | Oportunidad identificada] Una llamada autenticada recibe 401 por token expirado/invalido durante el uso normal (authenticated-fetch.ts:41-44).",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "session_expired"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "route_at_expiry",
+              "token_age_seconds"
+            ],
+            "properties": {
+              "route_at_expiry": {
+                "type": "string",
+                "minLength": 1
+              },
+              "token_age_seconds": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "description": "Null si no se puede calcular (ver docs/event-envelope.md section 8)."
+              }
+            },
+            "description": "Propiedades especificas de session_expired."
+          }
+        }
+      },
+      "password_reset_requested": {
+        "type": "object",
+        "title": "password_reset_requested",
+        "description": "[Autenticacion | Oportunidad identificada] POST /auth/forgot-password es invocado (auth.py:60-81). No incluye si la cuenta existe, para no recrear el canal de enumeracion que el backend ya evita.",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "password_reset_requested"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "email_hash"
+            ],
+            "properties": {
+              "email_hash": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$",
+                "description": "Seudonimizado, no anonimo."
+              }
+            },
+            "description": "Propiedades especificas de password_reset_requested."
+          }
+        }
+      },
+      "password_reset_completed": {
+        "type": "object",
+        "title": "password_reset_completed",
+        "description": "[Autenticacion | Oportunidad identificada] POST /auth/reset-password completa el cambio con exito (auth.py:84-90).",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "password_reset_completed"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [],
+            "properties": {},
+            "description": "Propiedades especificas de password_reset_completed."
+          }
+        }
+      },
+      "api_latency_recorded": {
+        "type": "object",
+        "title": "api_latency_recorded",
+        "description": "[Rendimiento | Oportunidad identificada] Se mide la duracion de una llamada autenticada, capturado en el wrapper unico authenticated-fetch.ts.",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "api_latency_recorded"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "endpoint",
+              "method",
+              "status_code",
+              "duration_ms",
+              "cache_hit"
+            ],
+            "properties": {
+              "endpoint": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Plantilla de ruta sin ids, p.ej. /inventory/products/{id}."
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "GET",
+                  "POST",
+                  "PATCH",
+                  "PUT",
+                  "DELETE"
+                ]
+              },
+              "status_code": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 599
+              },
+              "duration_ms": {
+                "type": "number",
+                "minimum": 0
+              },
+              "cache_hit": {
+                "type": [
+                  "boolean",
+                  "null"
+                ],
+                "description": "Null cuando el endpoint no tiene cache aplicable."
+              }
+            },
+            "description": "Propiedades especificas de api_latency_recorded."
+          }
+        }
+      },
+      "page_load_recorded": {
+        "type": "object",
+        "title": "page_load_recorded",
+        "description": "[Rendimiento | Oportunidad identificada] Se mide el tiempo de carga de una pagina del backoffice (Web Vitals, no implementado hoy).",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "page_load_recorded"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "route",
+              "lcp_ms",
+              "ttfb_ms"
+            ],
+            "properties": {
+              "route": {
+                "type": "string",
+                "minLength": 1
+              },
+              "lcp_ms": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "ttfb_ms": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              }
+            },
+            "description": "Propiedades especificas de page_load_recorded."
+          }
+        }
+      },
+      "frontend_error_detected": {
+        "type": "object",
+        "title": "frontend_error_detected",
+        "description": "[Errores | Oportunidad identificada] Un error no controlado ocurre en el frontend (no existe hoy ningun error.tsx/ErrorBoundary; contrato objetivo).",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "frontend_error_detected"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "route",
+              "error_name",
+              "error_message"
+            ],
+            "properties": {
+              "route": {
+                "type": "string",
+                "minLength": 1
+              },
+              "error_name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "error_message": {
+                "type": "string",
+                "maxLength": 500,
+                "description": "Saneado: sin JWT/Bearer, truncado a 500 caracteres."
+              }
+            },
+            "description": "Propiedades especificas de frontend_error_detected."
+          }
+        }
+      },
+      "form_submission_failed": {
+        "type": "object",
+        "title": "form_submission_failed",
+        "description": "[Errores | Oportunidad identificada] Un formulario del backoffice muestra un toast.error tras un fallo de envio (p.ej. InboundOrderForm.tsx:62-83).",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "form_submission_failed"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "form_name",
+              "http_status",
+              "error_message"
+            ],
+            "properties": {
+              "form_name": {
+                "type": "string",
+                "enum": [
+                  "inbound_order",
+                  "outbound_order",
+                  "incident",
+                  "supplier",
+                  "candidate",
+                  "login",
+                  "register",
+                  "change_password",
+                  "reset_password"
+                ]
+              },
+              "http_status": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 100,
+                "maximum": 599,
+                "description": "Null si el fallo fue de validacion de cliente sin llamada HTTP."
+              },
+              "error_message": {
+                "type": "string",
+                "maxLength": 500,
+                "description": "Saneado: sin JWT/Bearer, truncado a 500 caracteres."
+              }
+            },
+            "description": "Propiedades especificas de form_submission_failed."
+          }
+        }
+      },
+      "page_viewed": {
+        "type": "object",
+        "title": "page_viewed",
+        "description": "[Navegacion | Oportunidad identificada] El usuario navega a una ruta del backoffice (hook en AppShell.tsx/Sidebar.tsx, que ya usan usePathname()).",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "page_viewed"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "route",
+              "referrer_route"
+            ],
+            "properties": {
+              "route": {
+                "type": "string",
+                "minLength": 1
+              },
+              "referrer_route": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Null si es la primera pagina de la visita."
+              }
+            },
+            "description": "Propiedades especificas de page_viewed."
+          }
+        }
+      },
+      "form_abandoned": {
+        "type": "object",
+        "title": "form_abandoned",
+        "description": "[Navegacion | Oportunidad identificada] El usuario sale de una ruta con un formulario parcialmente rellenado sin enviarlo con exito.",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "timestamp",
+          "sessionId",
+          "userId",
+          "event_type",
+          "schemaVersion",
+          "requestId",
+          "properties"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "form_abandoned"
+          },
+          "eventId": {
+            "$ref": "#/definitions/envelopeFields/eventId"
+          },
+          "timestamp": {
+            "$ref": "#/definitions/envelopeFields/timestamp"
+          },
+          "sessionId": {
+            "$ref": "#/definitions/envelopeFields/sessionId"
+          },
+          "userId": {
+            "$ref": "#/definitions/envelopeFields/userId"
+          },
+          "schemaVersion": {
+            "$ref": "#/definitions/envelopeFields/schemaVersion"
+          },
+          "requestId": {
+            "$ref": "#/definitions/envelopeFields/requestId"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "form_name",
+              "fields_completed_pct"
+            ],
+            "properties": {
+              "form_name": {
+                "type": "string",
+                "enum": [
+                  "inbound_order",
+                  "outbound_order",
+                  "incident",
+                  "supplier",
+                  "candidate",
+                  "login",
+                  "register",
+                  "change_password",
+                  "reset_password"
+                ]
+              },
+              "fields_completed_pct": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              }
+            },
+            "description": "Propiedades especificas de form_abandoned."
+          }
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/definitions/events/inbound_order_created"
+    },
+    {
+      "$ref": "#/definitions/events/outbound_order_created"
+    },
+    {
+      "$ref": "#/definitions/events/stock_waste_registered"
+    },
+    {
+      "$ref": "#/definitions/events/stock_threshold_triggered"
+    },
+    {
+      "$ref": "#/definitions/events/direct_stock_edit_rejected"
+    },
+    {
+      "$ref": "#/definitions/events/ingredient_price_variance_detected"
+    },
+    {
+      "$ref": "#/definitions/events/inbound_order_rejected"
+    },
+    {
+      "$ref": "#/definitions/events/outbound_order_rejected"
+    },
+    {
+      "$ref": "#/definitions/events/inventory_products_viewed"
+    },
+    {
+      "$ref": "#/definitions/events/login_failed"
+    },
+    {
+      "$ref": "#/definitions/events/login_succeeded"
+    },
+    {
+      "$ref": "#/definitions/events/session_expired"
+    },
+    {
+      "$ref": "#/definitions/events/password_reset_requested"
+    },
+    {
+      "$ref": "#/definitions/events/password_reset_completed"
+    },
+    {
+      "$ref": "#/definitions/events/api_latency_recorded"
+    },
+    {
+      "$ref": "#/definitions/events/page_load_recorded"
+    },
+    {
+      "$ref": "#/definitions/events/frontend_error_detected"
+    },
+    {
+      "$ref": "#/definitions/events/form_submission_failed"
+    },
+    {
+      "$ref": "#/definitions/events/page_viewed"
+    },
+    {
+      "$ref": "#/definitions/events/form_abandoned"
+    }
+  ]
+}
