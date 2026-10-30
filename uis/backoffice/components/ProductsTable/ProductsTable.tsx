@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Product } from "@/lib/inventory-types";
 import { CATEGORY_STYLES } from "@/lib/inventory-api";
 import Badge from "../Badge";
@@ -18,7 +19,11 @@ export default function ProductsTable({ products }: ProductsTableProps) {
               <th className="px-4 py-3 font-medium">Location</th>
               <th className="px-4 py-3 font-medium">Price</th>
               <th className="px-4 py-3 font-medium">Current stock</th>
+              <th className="px-4 py-3 font-medium">Min. stock</th>
               <th className="px-4 py-3 font-medium">Availability</th>
+              <th className="px-4 py-3 font-medium">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
@@ -53,6 +58,7 @@ export default function ProductsTable({ products }: ProductsTableProps) {
                     maxWidthClass="max-w-none"
                   />
                 </td>
+                <td className="px-4 py-3 text-zinc-700">{product.minimum_stock}</td>
                 <td className="px-4 py-3">
                   <Badge
                     label={product.is_available ? "Available" : "Unavailable"}
@@ -62,6 +68,14 @@ export default function ProductsTable({ products }: ProductsTableProps) {
                         : "bg-zinc-100 text-zinc-600"
                     }
                   />
+                </td>
+                <td className="px-4 py-3">
+                  <Link
+                    href={`/inventory/products/${product.id}/edit`}
+                    className="font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+                  >
+                    Edit
+                  </Link>
                 </td>
               </tr>
             ))}

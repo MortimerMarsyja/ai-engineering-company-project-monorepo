@@ -2,12 +2,28 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ApiError, getForbiddenField } from "@/lib/api-error";
 import { createOutboundOrder, EXIT_REASON_OPTIONS, fetchProducts } from "@/lib/inventory-api";
 import { validateQuantity } from "@/lib/inventory-form";
 import type { ExitReason, Product } from "@/lib/inventory-types";
+import { sanitizeErrorMessage, toCountryCode, toCurrency, toLocationId, track } from "@/lib/telemetry";
 import FormField from "../FormField";
 import Select from "../Select";
 import { useToast } from "../ToastProvider";
+
+/** `ExitReason` (services/api/app/models/schemas.py, lib/inventory-types.ts)
+ * now has exactly the 6 values the two approved events need between them —
+ * the generic "waste" bucket was replaced by its 3 specific causes (see the
+ * commit that closed the Phase 3 gap report for stock_waste_registered).
+ * `kitchen_use`/`transfer`/`other` -> outbound_order_created; the 3 merma
+ * causes -> stock_waste_registered. The two events are mutually exclusive
+ * over the same StockExit row (docs/event-envelope.md section 6: a waste
+ * exit is never also counted as ordinary consumption). */
+const WASTE_REASONS = new Set<ExitReason>(["expired", "kitchen_error", "theft_suspected"]);
+
+function isWasteReason(reason: ExitReason): reason is "expired" | "kitchen_error" | "theft_suspected" {
+  return WASTE_REASONS.has(reason);
+}
 
 export default function OutboundOrderForm() {
   const router = useRouter();
@@ -66,16 +82,54 @@ export default function OutboundOrderForm() {
     if (qtyError || insufficientStock || prodError || !selectedProduct) return;
 
     setSubmitting(true);
+    const normalizedQuantity = Number(quantity);
+    const normalizedUnit = unit.trim() || "kg";
     try {
-      await createOutboundOrder({
+      const order = await createOutboundOrder({
         ingredient_id: selectedProduct.id,
-        quantity: Number(quantity),
-        unit: unit.trim() || "kg",
+        quantity: normalizedQuantity,
+        unit: normalizedUnit,
         reason,
         country: selectedProduct.country,
         city: selectedProduct.city,
       });
       toast.success(`Withdrawal logged for ${selectedProduct.name}.`);
+
+      const commonProperties = {
+        location_id: toLocationId(selectedProduct.country, selectedProduct.city),
+        country: toCountryCode(selectedProduct.country),
+        product_id: String(selectedProduct.id),
+        product_category: selectedProduct.category,
+        quantity: normalizedQuantity,
+        unit: normalizedUnit,
+        currency: toCurrency(selectedProduct.country),
+        order_id: String(order.id),
+      };
+      if (isWasteReason(reason)) {
+        // stock_waste_registered (docs/event-schemas.json) — obligatorio.
+        track("stock_waste_registered", { ...commonProperties, reason });
+      } else {
+        // outbound_order_created (docs/event-schemas.json) — obligatorio.
+        track("outbound_order_created", { ...commonProperties, reason });
+      }
+
+      if (order.threshold_crossed) {
+        // stock_threshold_triggered (docs/event-schemas.json) — obligatorio.
+        // threshold_crossed is computed server-side (services/api/app/routers/inventory.py):
+        // true only on the transition from >= minimum_stock to < minimum_stock,
+        // never re-fired on repeated withdrawals while already below it.
+        track("stock_threshold_triggered", {
+          location_id: commonProperties.location_id,
+          country: commonProperties.country,
+          product_id: commonProperties.product_id,
+          product_category: commonProperties.product_category,
+          quantity: order.current_stock_after,
+          unit: normalizedUnit,
+          currency: null,
+          minimum_stock: order.minimum_stock,
+        });
+      }
+
       router.push("/inventory");
       router.refresh();
     } catch (err) {
@@ -86,6 +140,58 @@ export default function OutboundOrderForm() {
           ? err.message
           : "We couldn't log this withdrawal. Please try again.",
       );
+
+      const forbiddenField = getForbiddenField(err);
+      if (forbiddenField) {
+        // direct_stock_edit_rejected — see the identical comment in
+        // InboundOrderForm.tsx; same reasoning applies here.
+        track("direct_stock_edit_rejected", {
+          location_id: toLocationId(selectedProduct.country, selectedProduct.city),
+          country: toCountryCode(selectedProduct.country),
+          product_id: String(selectedProduct.id),
+          product_category: selectedProduct.category,
+          quantity: null,
+          unit: null,
+          currency: null,
+          endpoint: "/inventory/orders/outbound",
+          rejected_field: forbiddenField,
+          http_status: 422,
+        });
+      } else if (err instanceof ApiError && (err.status === 404 || err.status === 422 || err.status === 400)) {
+        // outbound_order_rejected. inventory.py's create_outbound_order
+        // returns 404 for "product not found", 422 for location mismatch,
+        // and 400 for insufficient stock — status alone disambiguates.
+        // available_quantity stays null: the 400 message embeds the real
+        // available amount only as free text (buildApiError collapses the
+        // backend detail to a string), and the client's own
+        // `selectedProduct.current_stock` is a stale, pre-submit snapshot —
+        // not the authoritative value the backend just computed. Parsing
+        // it out of the message text was deliberately avoided (fragile,
+        // and error messages are a flagged place for data to leak) —
+        // documented gap, see the Phase 3 completion report.
+        track("outbound_order_rejected", {
+          product_id: String(selectedProduct.id),
+          location_id: toLocationId(selectedProduct.country, selectedProduct.city),
+          attempted_country: toCountryCode(selectedProduct.country),
+          attempted_city: selectedProduct.city ?? "",
+          requested_quantity: normalizedQuantity,
+          available_quantity: null,
+          unit: normalizedUnit,
+          rejection_reason:
+            err.status === 404
+              ? "product_not_found"
+              : err.status === 422
+                ? "location_mismatch"
+                : "insufficient_stock",
+          http_status: err.status,
+        });
+      } else {
+        track("form_submission_failed", {
+          form_name: "outbound_order",
+          http_status: err instanceof ApiError ? err.status : null,
+          error_message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)),
+        });
+      }
     } finally {
       setSubmitting(false);
     }

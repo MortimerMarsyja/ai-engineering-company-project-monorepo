@@ -3,6 +3,7 @@
 GET    /inventory/products            list products (with computed stock)
 POST   /inventory/products            create a product (auth required)
 GET    /inventory/products/{id}       get one product (with computed stock)
+PATCH  /inventory/products/{id}       update a product's minimum_stock (staff only)
 POST   /inventory/orders/inbound      register an inbound order (auth required)
 POST   /inventory/orders/outbound     register an outbound order (auth required)
 GET    /inventory/orders              list all orders, with product data + user_uuid
@@ -14,7 +15,7 @@ from the TinyDB-backed entities (users, records, incidents, suppliers).
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func
+from sqlalchemy import desc, func
 from sqlmodel import Session, select
 
 from app.core.database import get_db
@@ -27,12 +28,20 @@ from app.models.schemas import (
     InboundStockResponse,
     MenuItemCreate,
     MenuItemResponse,
+    MenuItemUpdate,
     OrderResponse,
     StockExitCreate,
     StockExitResponse,
 )
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
+
+# ingredient_price_variance_detected's approved variance_threshold_pct
+# (docs/event-schemas.json) — the literal example value from the briefing.
+PRICE_VARIANCE_THRESHOLD_PCT = 10.0
+# How many of the most recent same-product+supplier deliveries to average
+# for the "historical" cost baseline.
+PRICE_HISTORY_WINDOW = 5
 
 
 def _current_stock(db: Session, ingredient_id: int, country: str, city: str | None) -> float:
@@ -71,6 +80,30 @@ def _to_product_response(db: Session, item: MenuItem) -> MenuItemResponse:
         **item.model_dump(),
         current_stock=_current_stock(db, item.id, item.country, item.city),
     )
+
+
+def _historical_unit_cost(db: Session, ingredient_id: int, supplier_id: int | None) -> float | None:
+    """Average unit_cost of the last PRICE_HISTORY_WINDOW deliveries for the
+    same product+supplier (ingredient_price_variance_detected needs this as
+    its comparison baseline). Returns None — never a guessed number — when
+    there's no supplier_id on the order, or no prior delivery for that
+    product+supplier exists yet to compare against.
+    """
+    if supplier_id is None:
+        return None
+    rows = db.exec(
+        select(InboundStock.unit_cost)
+        .where(
+            InboundStock.ingredient_id == ingredient_id,
+            InboundStock.supplier_id == supplier_id,
+            InboundStock.unit_cost.is_not(None),
+        )
+        .order_by(desc(InboundStock.created_at))
+        .limit(PRICE_HISTORY_WINDOW)
+    ).all()
+    if not rows:
+        return None
+    return sum(rows) / len(rows)
 
 
 # ── POST /inventory/products ───────────────────────────────
@@ -114,6 +147,25 @@ async def get_product(
     return _to_product_response(db, item)
 
 
+# ── PATCH /inventory/products/{id} ─────────────────────────
+@router.patch("/products/{product_id}", response_model=MenuItemResponse)
+async def update_product(
+    product_id: int,
+    payload: MenuItemUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_staff),
+):
+    """Adjust a product's minimum_stock threshold (staff only). The only
+    editable field today — the minimal capability stock_threshold_triggered's
+    own decision requires ("ajustar el umbral mínimo")."""
+    item = _get_product_or_404(db, product_id)
+    item.minimum_stock = payload.minimum_stock
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return _to_product_response(db, item)
+
+
 # ── POST /inventory/orders/inbound ─────────────────────────
 @router.post("/orders/inbound", response_model=InboundStockResponse, status_code=201)
 async def create_inbound_order(
@@ -129,11 +181,27 @@ async def create_inbound_order(
             detail="Order location must match the product's location (country/city).",
         )
 
+    # Computed BEFORE inserting this row, so the new delivery's own cost
+    # never counts toward its own "historical" baseline.
+    historical_cost = _historical_unit_cost(db, payload.ingredient_id, payload.supplier_id)
+
     entry = InboundStock(**payload.model_dump(), user_uuid=str(current_user["id"]))
     db.add(entry)
     db.commit()
     db.refresh(entry)
-    return entry
+
+    variance_pct = None
+    price_variance_detected = False
+    if historical_cost is not None:
+        variance_pct = (entry.unit_cost - historical_cost) / historical_cost * 100
+        price_variance_detected = abs(variance_pct) >= PRICE_VARIANCE_THRESHOLD_PCT
+
+    return InboundStockResponse(
+        **entry.model_dump(),
+        unit_cost_historical=historical_cost,
+        variance_pct=variance_pct,
+        price_variance_detected=price_variance_detected,
+    )
 
 
 # ── POST /inventory/orders/outbound ────────────────────────
@@ -166,7 +234,16 @@ async def create_outbound_order(
     db.add(entry)
     db.commit()
     db.refresh(entry)
-    return entry
+
+    current_stock_after = available - payload.quantity
+    threshold_crossed = available >= product.minimum_stock > current_stock_after
+
+    return StockExitResponse(
+        **entry.model_dump(),
+        minimum_stock=product.minimum_stock,
+        current_stock_after=current_stock_after,
+        threshold_crossed=threshold_crossed,
+    )
 
 
 # ── GET /inventory/orders ──────────────────────────────────

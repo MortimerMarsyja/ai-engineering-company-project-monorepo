@@ -214,7 +214,12 @@ ProductCategory = Literal[
     "Meat", "Produce", "Beverages", "Dairy", "Seafood", "Spices", "Other"
 ]
 
-ExitReason = Literal["kitchen_use", "waste", "transfer", "other"]
+# "waste" was replaced by its 3 specific causes (docs/mandatory_metrics.md's
+# stock_waste_registered event requires one of expired/kitchen_error/
+# theft_suspected, not a generic "waste" bucket — see docs/event-envelope.md
+# section 6 and the Phase 3 telemetry gap report). No existing StockExit row
+# used "waste" at the time of this change (verified against the dev DB).
+ExitReason = Literal["kitchen_use", "transfer", "other", "expired", "kitchen_error", "theft_suspected"]
 
 CITIES_BY_COUNTRY: dict[Country, set[City]] = {
     "Colombia": {"Medellín", "Bogotá", "Cali"},
@@ -418,6 +423,17 @@ class MenuItemFields(BaseModel):
     price_usd: float = Field(..., gt=0)
     dietary_preferences: list[DietaryPreference] = Field(default_factory=list)
     is_available: bool = True
+    minimum_stock: float = Field(
+        default=5.0,
+        gt=0,
+        description=(
+            "Threshold below which stock_threshold_triggered fires on an "
+            "outbound order (docs/event-schemas.json). Defaults to a flat "
+            "5 for every product until adjusted via PATCH /products/{id} — "
+            "a per-product business decision, not derived from any other "
+            "field."
+        ),
+    )
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -430,6 +446,16 @@ class MenuItemFields(BaseModel):
 
 class MenuItemCreate(MenuItemFields):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+
+class MenuItemUpdate(BaseModel):
+    """PATCH /inventory/products/{id} — only the minimum-stock threshold is
+    editable today (the minimal "adjust the threshold" capability the
+    stock_threshold_triggered event's own decision requires)."""
+
+    minimum_stock: float = Field(..., gt=0)
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class MenuItemResponse(MenuItemFields):
@@ -472,6 +498,16 @@ class InboundStockFields(BaseModel):
 
 
 class InboundStockCreate(InboundStockFields):
+    # unit_cost lives here (required), not on the shared InboundStockFields
+    # base: pre-existing rows have no cost on file (the column was added
+    # after they were created) and must stay nullable in the response —
+    # see InboundStockResponse below. Every NEW order must specify it.
+    unit_cost: float = Field(
+        ...,
+        gt=0,
+        description="Cost paid per unit, in the order's local currency (COP for Colombia, USD for US).",
+    )
+
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
 
@@ -479,6 +515,25 @@ class InboundStockResponse(InboundStockFields):
     id: int
     user_uuid: str = Field(..., description="Authenticated TinyDB user id that logged the receipt")
     created_at: datetime
+    unit_cost: float | None = Field(
+        default=None, description="Null for deliveries logged before this field existed."
+    )
+    unit_cost_historical: float | None = Field(
+        default=None,
+        description=(
+            "Average unit_cost of the last 5 prior deliveries for the same "
+            "product+supplier. Null when there is no supplier_id on this "
+            "order, or no prior delivery exists for that product+supplier "
+            "to compare against — never guessed."
+        ),
+    )
+    variance_pct: float | None = Field(
+        default=None, description="(unit_cost - unit_cost_historical) / unit_cost_historical * 100."
+    )
+    price_variance_detected: bool = Field(
+        default=False,
+        description="True when abs(variance_pct) >= 10 (docs/event-schemas.json variance_threshold_pct).",
+    )
 
     model_config = ConfigDict(str_strip_whitespace=True, from_attributes=True)
 
@@ -512,6 +567,16 @@ class StockExitResponse(StockExitFields):
     id: int
     user_uuid: str = Field(..., description="Authenticated TinyDB user id that logged the exit")
     created_at: datetime
+    minimum_stock: float = Field(..., description="The product's configured threshold at the time of this exit.")
+    current_stock_after: float = Field(..., description="current_stock immediately after this withdrawal.")
+    threshold_crossed: bool = Field(
+        default=False,
+        description=(
+            "True only on the transition: stock was >= minimum_stock before "
+            "this withdrawal and is < minimum_stock after it. Repeated "
+            "withdrawals while already below the threshold do not re-fire."
+        ),
+    )
 
     model_config = ConfigDict(str_strip_whitespace=True, from_attributes=True)
 

@@ -7,9 +7,11 @@ import AuthPanel from "@/components/AuthPanel";
 import FormField from "@/components/FormField";
 import {
   AuthRequestError,
+  decodeJwtPayload,
   loginUser,
   TOKEN_STORAGE_KEY,
 } from "@/lib/auth";
+import { hashEmailForTelemetry, sanitizeErrorMessage, startSession, track } from "@/lib/telemetry";
 
 type LoginErrors = Partial<Record<"email" | "password" | "form", string>>;
 
@@ -65,13 +67,51 @@ export default function LoginPage() {
     try {
       const session = await loginUser(email, password);
       window.localStorage.setItem(TOKEN_STORAGE_KEY, session.access_token);
+      startSession();
+
+      // login_succeeded (docs/event-schemas.json). `role` comes from the
+      // token's own claim (create_access_token embeds it server-side) —
+      // the login response itself only has {access_token, token_type}.
+      const role = decodeJwtPayload(session.access_token)?.role;
+      if (role === "admin" || role === "manager" || role === "user") {
+        track("login_succeeded", { role });
+      }
+
       router.replace("/dashboard");
       router.refresh();
     } catch (error) {
       if (error instanceof AuthRequestError) {
         setErrors({ ...error.fieldErrors, form: error.message });
+
+        // login_failed / form_submission_failed (docs/event-schemas.json).
+        // The backend returns exactly two messages for a 401 on this
+        // endpoint (services/api/app/routers/auth.py): "Incorrect email or
+        // password" and "User account is inactive" — derived from the
+        // actual result, not guessed. Any other AuthRequestError message
+        // (e.g. a network failure, which lib/auth.ts reports without a
+        // status) isn't an authentication *result* at all, so it's
+        // reported as a generic form failure instead of a fabricated
+        // login_failed reason.
+        void hashEmailForTelemetry(email).then((email_hash) => {
+          if (error.message === "User account is inactive") {
+            track("login_failed", { failure_reason: "inactive_account", email_hash });
+          } else if (error.message === "Incorrect email or password") {
+            track("login_failed", { failure_reason: "invalid_credentials", email_hash });
+          } else {
+            track("form_submission_failed", {
+              form_name: "login",
+              http_status: null,
+              error_message: sanitizeErrorMessage(error.message),
+            });
+          }
+        });
       } else {
         setErrors({ form: "Unable to sign in. Please try again." });
+        track("form_submission_failed", {
+          form_name: "login",
+          http_status: null,
+          error_message: sanitizeErrorMessage(error instanceof Error ? error.message : String(error)),
+        });
       }
       setIsSubmitting(false);
     }

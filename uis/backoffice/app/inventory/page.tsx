@@ -9,6 +9,7 @@ import ProductsTable from "@/components/ProductsTable";
 import { fetchProducts } from "@/lib/inventory-api";
 import { isRetryableError } from "@/lib/api-error";
 import type { Product } from "@/lib/inventory-types";
+import { track } from "@/lib/telemetry";
 
 export default function InventoryPage() {
   const sessionLoading = usePageLoading();
@@ -19,9 +20,18 @@ export default function InventoryPage() {
   const loadProducts = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    const startedAt = performance.now();
     try {
       const data = await fetchProducts();
       setProducts(data ?? []);
+      // inventory_products_viewed (docs/event-schemas.json). cache_hit is
+      // always false: GET /inventory/products isn't cached today (see
+      // docs/cache-evaluation.md) — not invented.
+      track("inventory_products_viewed", {
+        product_count: (data ?? []).length,
+        response_time_ms: performance.now() - startedAt,
+        cache_hit: false,
+      });
     } catch (err) {
       setError(err);
     } finally {

@@ -1,5 +1,6 @@
 import {
   ApiError,
+  getForbiddenField,
   isPermissionError,
   isRetryableError,
   ACCESS_DENIED_MESSAGE,
@@ -71,6 +72,42 @@ describe("isRetryableError", () => {
   it("defaults to true when there's no status at all (network error etc.)", () => {
     expect(isRetryableError(new Error("network down"))).toBe(true);
     expect(isRetryableError(null)).toBe(true);
+  });
+});
+
+describe("getForbiddenField", () => {
+  it("returns the rejected field name for a 422 extra_forbidden issue", () => {
+    const err = new ApiError("Unprocessable", 422, [
+      { type: "extra_forbidden", loc: ["body", "current_stock"], msg: "Extra inputs are not permitted" },
+    ]);
+    expect(getForbiddenField(err)).toBe("current_stock");
+  });
+
+  it("returns null for a 422 that isn't an extra_forbidden issue (e.g. location mismatch)", () => {
+    // services/api's location-mismatch 422 is a plain string detail, not a
+    // structured issue list — buildApiError only sets rawDetail when the
+    // backend's `detail` is an array in the first place.
+    const err = new ApiError("Order location must match the product's location.", 422, undefined);
+    expect(getForbiddenField(err)).toBeNull();
+  });
+
+  it("returns null for a 422 with a structured but unrelated validation issue", () => {
+    const err = new ApiError("Unprocessable", 422, [
+      { type: "greater_than", loc: ["body", "quantity"], msg: "Input should be greater than 0" },
+    ]);
+    expect(getForbiddenField(err)).toBeNull();
+  });
+
+  it("returns null for any non-422 status, even with a matching rawDetail", () => {
+    const err = new ApiError("boom", 400, [
+      { type: "extra_forbidden", loc: ["body", "current_stock"] },
+    ]);
+    expect(getForbiddenField(err)).toBeNull();
+  });
+
+  it("returns null for a non-ApiError", () => {
+    expect(getForbiddenField(new Error("plain error"))).toBeNull();
+    expect(getForbiddenField(null)).toBeNull();
   });
 });
 

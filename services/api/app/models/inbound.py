@@ -31,6 +31,14 @@ class InboundStock(SQLModel, table=True):
 
     quantity: float = Field(gt=0)
     unit: str = Field(default="kg", description="Unit of measure: kg, L, units, ...")
+    unit_cost: float | None = Field(
+        default=None,
+        description=(
+            "Cost paid per unit, in the order's local currency. Nullable "
+            "at the DB level only for rows created before this column "
+            "existed — the API requires it on every new order."
+        ),
+    )
 
     # Who supplied and who logged the delivery.
     supplier_id: int | None = Field(

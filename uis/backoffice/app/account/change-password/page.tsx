@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import FormField from "@/components/FormField";
 import { AuthRequestError } from "@/lib/auth";
 import { changePassword } from "@/lib/password";
+import { sanitizeErrorMessage, track } from "@/lib/telemetry";
 
 type ChangeErrors = Partial<
   Record<"currentPassword" | "newPassword" | "confirmPassword" | "form", string>
@@ -45,15 +46,26 @@ export default function ChangePasswordPage() {
       form.reset();
       setSucceeded(true);
     } catch (error) {
+      // No approved event exists for a successful change — only the
+      // failure path is instrumented (form_submission_failed covers
+      // "change_password" in its approved form_name enum).
+      let message: string;
       if (error instanceof AuthRequestError) {
         setErrors({
           currentPassword: error.fieldErrors.current_password,
           newPassword: error.fieldErrors.new_password,
           form: error.message,
         });
+        message = error.message;
       } else {
-        setErrors({ form: "Unable to change your password. Please try again." });
+        message = "Unable to change your password. Please try again.";
+        setErrors({ form: message });
       }
+      track("form_submission_failed", {
+        form_name: "change_password",
+        http_status: null,
+        error_message: sanitizeErrorMessage(message),
+      });
     } finally {
       setIsSubmitting(false);
     }
