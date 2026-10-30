@@ -42,6 +42,10 @@ class MenuItem(SQLModel, table=True):
         default_factory=list, sa_column=Column(JSON)
     )
     is_available: bool = Field(default=True)
+    minimum_stock: float = Field(
+        default=5.0,
+        description="Threshold below which stock_threshold_triggered fires on an outbound order.",
+    )
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

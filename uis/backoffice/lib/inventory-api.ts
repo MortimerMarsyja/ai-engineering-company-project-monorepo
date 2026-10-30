@@ -1,8 +1,10 @@
 import type {
   ExitReason,
   InboundOrderCreate,
+  InboundOrderResponse,
   Order,
   OutboundOrderCreate,
+  OutboundOrderResponse,
   Product,
 } from "./inventory-types";
 import { authenticatedFetch } from "./authenticated-fetch";
@@ -35,15 +37,19 @@ export const CATEGORY_STYLES: Record<string, string> = {
 
 export const EXIT_REASON_OPTIONS: { value: ExitReason; label: string }[] = [
   { value: "kitchen_use", label: "Kitchen use" },
-  { value: "waste", label: "Waste / spoilage" },
   { value: "transfer", label: "Transfer to another location" },
+  { value: "expired", label: "Waste — expired product" },
+  { value: "kitchen_error", label: "Waste — kitchen error" },
+  { value: "theft_suspected", label: "Waste — suspected theft/loss" },
   { value: "other", label: "Other" },
 ];
 
 export const EXIT_REASON_LABELS: Record<string, string> = {
   kitchen_use: "Kitchen use",
-  waste: "Waste / spoilage",
   transfer: "Transfer",
+  expired: "Waste — expired product",
+  kitchen_error: "Waste — kitchen error",
+  theft_suspected: "Waste — suspected theft/loss",
   other: "Other",
 };
 
@@ -71,7 +77,8 @@ async function buildApiError(
   const body = await res.json().catch(() => null);
   const detail = body?.detail;
   const message = typeof detail === "string" && detail.trim() ? detail : fallback;
-  return new ApiError(message, res.status);
+  const rawDetail = Array.isArray(detail) ? detail : undefined;
+  return new ApiError(message, res.status, rawDetail);
 }
 
 export async function fetchProducts(): Promise<Product[]> {
@@ -87,9 +94,42 @@ export async function fetchProducts(): Promise<Product[]> {
   return (await res.json().catch(() => [])) ?? [];
 }
 
+export async function fetchProduct(productId: number): Promise<Product> {
+  const res = await authenticatedFetch(`/api/proxy/inventory/products/${productId}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw await buildApiError(
+      res,
+      "We couldn't load this product right now. Please try again.",
+      { notFound: "This product no longer exists." },
+    );
+  }
+  return res.json();
+}
+
+export async function updateProductMinimumStock(
+  productId: number,
+  minimum_stock: number,
+): Promise<Product> {
+  const res = await authenticatedFetch(`/api/proxy/inventory/products/${productId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ minimum_stock }),
+  });
+  if (!res.ok) {
+    throw await buildApiError(
+      res,
+      "We couldn't update this product. Please check the value and try again.",
+      { notFound: "This product no longer exists.", forbidden: ACCESS_DENIED_ACTION_MESSAGE },
+    );
+  }
+  return res.json();
+}
+
 export async function createInboundOrder(
   payload: InboundOrderCreate,
-): Promise<void> {
+): Promise<InboundOrderResponse> {
   const res = await authenticatedFetch("/api/proxy/inventory/orders/inbound", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -102,11 +142,12 @@ export async function createInboundOrder(
       { forbidden: ACCESS_DENIED_ACTION_MESSAGE },
     );
   }
+  return res.json();
 }
 
 export async function createOutboundOrder(
   payload: OutboundOrderCreate,
-): Promise<void> {
+): Promise<OutboundOrderResponse> {
   const res = await authenticatedFetch("/api/proxy/inventory/orders/outbound", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -119,6 +160,7 @@ export async function createOutboundOrder(
       { forbidden: ACCESS_DENIED_ACTION_MESSAGE },
     );
   }
+  return res.json();
 }
 
 export async function fetchOrders(): Promise<Order[]> {

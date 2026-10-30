@@ -5,6 +5,7 @@ import AuthPanel from "@/components/AuthPanel";
 import FormField from "@/components/FormField";
 import ErrorState from "@/components/ErrorState";
 import { requestPasswordReset } from "@/lib/auth";
+import { hashEmailForTelemetry, sanitizeErrorMessage, track } from "@/lib/telemetry";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -25,12 +26,26 @@ export default function ForgotPasswordPage() {
       // attacker can't probe which emails have accounts) — only a genuine
       // failure (network/server error) should land in the catch below.
       setIsSubmitted(true);
+      // password_reset_requested (docs/event-schemas.json). Only tracked
+      // once the call actually reached the backend and got a response —
+      // not on a network failure, which never really "invoked" it.
+      void hashEmailForTelemetry(email).then((email_hash) => {
+        track("password_reset_requested", { email_hash });
+      });
     } catch (err) {
-      setSubmitError(
+      const message =
         err instanceof Error
           ? err.message
-          : "We couldn't send the reset email right now. Please try again.",
-      );
+          : "We couldn't send the reset email right now. Please try again.";
+      setSubmitError(message);
+      // form_name "reset_password": the approved enum (docs/event-schemas.json)
+      // doesn't distinguish the email-request step from the token-confirm
+      // step of this flow — both pages map to the same value.
+      track("form_submission_failed", {
+        form_name: "reset_password",
+        http_status: null,
+        error_message: sanitizeErrorMessage(message),
+      });
     } finally {
       setIsSubmitting(false);
     }

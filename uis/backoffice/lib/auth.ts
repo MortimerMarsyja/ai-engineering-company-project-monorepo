@@ -1,5 +1,24 @@
 export const TOKEN_STORAGE_KEY = "brasaland_access_token";
 
+/** Minimal, dependency-free decode of a JWT's payload segment (base64url
+ * JSON) — no signature verification, this is for reading claims already
+ * trusted because the token came from our own `localStorage`, not for
+ * authenticating anything. Returns `null` for a missing/malformed token
+ * rather than guessing a value. Shared by `lib/telemetry.ts` (for `userId`)
+ * and `app/login/page.tsx` (for `role`, used by the `login_succeeded`
+ * telemetry event) so the decode logic lives in exactly one place. */
+export function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    return JSON.parse(atob(padded)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 export interface RegistrationPayload {
   email: string;
   password: string;

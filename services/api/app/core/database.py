@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Generator
 from pathlib import Path
 
+from sqlalchemy import text
 from sqlmodel import Session, SQLModel, create_engine
 from tinydb import TinyDB
 
@@ -36,6 +37,30 @@ def init_db() -> None:
     from app.models import inbound, menu_item, outbound  # noqa: F401
 
     SQLModel.metadata.create_all(engine)
+    _run_lightweight_migrations()
+
+
+def _run_lightweight_migrations() -> None:
+    """Add columns to tables that already existed before this field was
+    introduced — `create_all()` only creates missing tables, it never
+    alters existing ones. There is no formal migration tool (e.g. Alembic)
+    in this project yet; these are small, additive-only, idempotent
+    `ADD COLUMN IF NOT EXISTS` statements, safe to run on every startup.
+    `minimum_stock` backfills to a flat default for every pre-existing
+    product (a deliberate choice — see MenuItem.minimum_stock); `unit_cost`
+    stays NULL for pre-existing deliveries since there is no real cost on
+    file for them to backfill with.
+    """
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "ALTER TABLE menu_items "
+                "ADD COLUMN IF NOT EXISTS minimum_stock DOUBLE PRECISION NOT NULL DEFAULT 5"
+            )
+        )
+        conn.execute(
+            text("ALTER TABLE inbound_stock ADD COLUMN IF NOT EXISTS unit_cost DOUBLE PRECISION")
+        )
 
 
 def get_db() -> Generator[Session, None, None]:

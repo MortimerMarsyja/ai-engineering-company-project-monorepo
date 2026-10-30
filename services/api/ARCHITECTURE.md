@@ -571,6 +571,13 @@ Why separate?
 │  - CORS_ORIGINS: Allowed frontend URLs     │
 │  - BACKOFFICE_URL: Password reset links    │
 └────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────┐
+│  Telemetry                                 │
+│  - TELEMETRY_ENDPOINT: Forwarding target   │
+│    (read but unused — POST /telemetry/     │
+│    events only validates/logs/acks today)  │
+└────────────────────────────────────────────┘
 ```
 
 ## Key Technologies Explained

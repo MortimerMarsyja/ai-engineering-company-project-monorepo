@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import AuthPanel from "@/components/AuthPanel";
 import FormField from "@/components/FormField";
 import { AuthRequestError, resetPassword } from "@/lib/auth";
+import { sanitizeErrorMessage, track } from "@/lib/telemetry";
 
 type ResetErrors = Partial<Record<"newPassword" | "confirmPassword" | "form", string>>;
 
@@ -38,16 +39,25 @@ export default function ResetPasswordPage() {
     try {
       await resetPassword(token, newPassword);
       window.sessionStorage.setItem("brasaland_password_reset_success", "true");
+      track("password_reset_completed", {}); // docs/event-schemas.json — no properties beyond the envelope.
       router.replace("/login");
     } catch (error) {
+      let message: string;
       if (error instanceof AuthRequestError) {
         setErrors({
           newPassword: error.fieldErrors.new_password,
           form: error.message,
         });
+        message = error.message;
       } else {
-        setErrors({ form: "Unable to reset your password. Please try again." });
+        message = "Unable to reset your password. Please try again.";
+        setErrors({ form: message });
       }
+      track("form_submission_failed", {
+        form_name: "reset_password",
+        http_status: null,
+        error_message: sanitizeErrorMessage(message),
+      });
       setIsSubmitting(false);
     }
   }

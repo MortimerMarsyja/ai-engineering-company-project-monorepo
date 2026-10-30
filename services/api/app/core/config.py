@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     # Database (extend when ready)
     DATABASE_URL: str = "sqlite+aiosqlite:///./dev.db"
 
+    # Telemetry
+    # pydantic-settings lo lee de la variable de entorno o de .env; "" = sin configurar.
+    # No usado todavía (POST /telemetry/events solo valida/loguea/confirma en esta
+    # fase) — se establece el patrón de configuración ahora para que una fase
+    # posterior pueda reenviar los eventos sin tener que introducir el ajuste.
+    TELEMETRY_ENDPOINT: str = ""
+
     # AI / ML
     MODEL_NAME: str = ""
 
