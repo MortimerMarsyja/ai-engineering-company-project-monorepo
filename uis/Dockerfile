@@ -1,6 +1,9 @@
 # Dev-only image: runs both Next.js apps (brasaland-web + backoffice) with
 # their own `dev` process, reloading on code changes via bind mounts from
 # docker-compose. Not a production/standalone build.
+#
+# Build context is the REPO ROOT (see docker-compose.yml's `ui` service),
+# not this uis/ directory — every COPY below is relative to the root.
 FROM node:20-alpine
 
 # libc6-compat: Next.js/Turbopack ship some prebuilt native bindings that
@@ -15,28 +18,37 @@ RUN corepack enable && corepack prepare pnpm@10.34.3 --activate
 
 WORKDIR /app
 
-# ── Install each app's dependencies in its own layer ───────
-# Neither uis/brasaland-web nor uis/backoffice has its own lockfile today
-# (the monorepo's single pnpm-lock.yaml only tracks the repo root and
-# uis/backoffice as workspace members — brasaland-web isn't wired into
-# the root workspace yet). So each app is installed standalone, from its
-# own package.json, in its own directory — not via a workspace filter.
-# If either app later ships its own lockfile, `pnpm install` picks it up
-# and respects it automatically; nothing here needs to change.
-COPY brasaland-web/package.json ./brasaland-web/package.json
+# ── brasaland-web: fully standalone install ────────────────
+# No workspace:* dependencies — installed directly from its own
+# package.json, same as before.
+COPY uis/brasaland-web/package.json ./brasaland-web/package.json
 RUN cd brasaland-web && pnpm install
 
-COPY backoffice/package.json ./backoffice/package.json
-RUN cd backoffice && pnpm install
+# ── backoffice: needs a real (if minimal) pnpm workspace ───
+# backoffice depends on "@repo/shared-types": "workspace:*"
+# (packages/shared) — pnpm can only resolve the `workspace:` protocol
+# inside an actual workspace rooted at a pnpm-workspace.yaml, never from
+# a single package.json installed in isolation (that previously made
+# `pnpm install` fail here with ERR_PNPM_WORKSPACE_PKG_NOT_FOUND on any
+# cache-cold build). Declaring a workspace scoped to just these two
+# packages — not the monorepo's real root pnpm-workspace.yaml, which
+# also lists uis/* and would expect brasaland-web/backend/etc. to be
+# present too — is enough for pnpm to link @repo/shared-types locally
+# instead of trying to fetch it from a registry.
+RUN printf 'packages:\n  - backoffice\n  - packages/shared\n' > pnpm-workspace.yaml
+COPY packages/shared/package.json ./packages/shared/package.json
+COPY packages/shared/types ./packages/shared/types
+COPY uis/backoffice/package.json ./backoffice/package.json
+RUN pnpm install
 
 # ── Application source ──────────────────────────────────────
 # Overridden at runtime by docker-compose's bind mounts for live reload;
 # copied here so the image is runnable standalone too (e.g. `docker run`
 # without compose).
-COPY brasaland-web ./brasaland-web
-COPY backoffice ./backoffice
+COPY uis/brasaland-web ./brasaland-web
+COPY uis/backoffice ./backoffice
 
-COPY start.sh /usr/local/bin/start.sh
+COPY uis/start.sh /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh
 
 EXPOSE 3000 3001
