@@ -50,6 +50,46 @@ export const metadata: Metadata = {
   },
 };
 
+// schema.org structured data for search engines — ported over from the
+// stale root-level duplicate of this app (removed; see that cleanup's
+// commit) where it had been added but never carried into this, the real
+// deployed app. Not new content, just recovering what already existed.
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Restaurant",
+  name: "Brasaland",
+  description:
+    "Grilled food restaurant chain in Colombia and the United States",
+  url: "https://brasaland.com",
+  foundingDate: "2008",
+  servesCuisine: "Grilled food, Colombian cuisine",
+  priceRange: "$$",
+  address: [
+    {
+      "@type": "PostalAddress",
+      addressCountry: "CO",
+      addressLocality: "Medellin",
+      addressRegion: "Antioquia",
+    },
+    {
+      "@type": "PostalAddress",
+      addressCountry: "US",
+      addressLocality: "Miami",
+      addressRegion: "FL",
+    },
+  ],
+  contactPoint: {
+    "@type": "ContactPoint",
+    telephone: "+57-4-123-4567",
+    contactType: "customer service",
+    availableLanguage: ["Spanish", "English"],
+  },
+  sameAs: [
+    "https://instagram.com/brasaland",
+    "https://facebook.com/brasaland",
+  ],
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -57,6 +97,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${barlow.variable} ${oswald.variable}`}>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body className="font-barlow bg-brasa-bg text-brasa-text antialiased">
         {children}
       </body>
