@@ -1,10 +1,22 @@
+import Image from "next/image";
+import { STOCK_PHOTOS, unsplashUrl } from "@/lib/stock-photos";
+
 export default function OurStory() {
   return (
     <section
       aria-labelledby="story-heading"
-      className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-2 md:py-16"
-      style={{ contentVisibility: "auto", containIntrinsicSize: "1px 700px" }}
+      className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1fr_1.1fr] md:py-20"
     >
+      <div className="relative aspect-4/3 w-full overflow-hidden rounded-3xl shadow-xl md:aspect-5/4">
+        <Image
+          src={unsplashUrl(STOCK_PHOTOS.ourStoryGrilledMeats, 1000)}
+          alt="Grilled meats served on a wooden table"
+          fill
+          loading="lazy"
+          sizes="(min-width: 768px) 42vw, 100vw"
+          className="object-cover"
+        />
+      </div>
       <div>
         <h2
           id="story-heading"
@@ -19,18 +31,46 @@ export default function OurStory() {
           we maintain the same recipe for success: fresh products, traditional
           techniques, and passion for every dish we serve.
         </p>
+
+        {/* What makes us unique — inline list instead of 3 repeated cards,
+            reducing card/shadow repetition per this refresh's direction. */}
+        <dl className="mt-8 space-y-5 border-t border-brasa-brown/10 pt-6">
+          {FEATURES.map(({ title, items }) => (
+            <div key={title}>
+              <dt className="font-oswald text-lg uppercase text-brasa-red">
+                {title}
+              </dt>
+              <dd className="mt-1 text-sm leading-relaxed text-brasa-text-secondary">
+                {items.join(" ")}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
-      <figure className="overflow-hidden rounded-3xl border border-brasa-border/10 bg-brasa-cream-light p-3 shadow-lg">
-        <img
-          src="https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=1200&q=80"
-          alt="Brasaland grilled meats served on a wooden table"
-          loading="lazy"
-          decoding="async"
-          width={1200}
-          height={800}
-          className="h-full min-h-[240px] w-full rounded-2xl object-cover"
-        />
-      </figure>
     </section>
   );
 }
+
+const FEATURES = [
+  {
+    title: "Consistent Quality",
+    items: [
+      "Same recipes and standards in all locations.",
+      "Fresh ingredients selected daily.",
+    ],
+  },
+  {
+    title: "Warm Experience",
+    items: [
+      "Friendly and attentive service.",
+      "Family atmosphere on every visit.",
+    ],
+  },
+  {
+    title: "Speed",
+    items: [
+      "Your food ready in minutes.",
+      "Without sacrificing flavor or quality.",
+    ],
+  },
+] as const;
