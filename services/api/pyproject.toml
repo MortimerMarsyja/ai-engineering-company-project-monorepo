@@ -19,6 +19,7 @@ dependencies = [
     "resend>=2.49.0",
     "sqlmodel>=0.0.48",
     "psycopg2-binary>=2.9.13",
+    "pandas>=2.2",
 ]
 
 [project.scripts]
@@ -28,6 +29,7 @@ seed-incidents = "seed_incidents:main"
 seed-inventory = "seed_inventory:main"
 benchmark = "benchmark_endpoints:main"
 generate-events = "generate_events:main"
+migrate-tinydb = "migrate_tinydb_to_sql:main"
 
 [project.optional-dependencies]
 test = [
