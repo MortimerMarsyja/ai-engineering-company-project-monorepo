@@ -39,3 +39,15 @@
 .hamburger-bar {
   transition: transform 0.25s ease, opacity 0.2s ease;
 }
+
+/* Respect the OS-level "reduce motion" preference across every transition
+   on the page (the mobile menu slide, hamburger icon morph, and every
+   Tailwind `motion-reduce:` utility used inline in components already
+   degrades gracefully — this is the one global, non-utility rule needed
+   for the two hand-written CSS transitions above). */
+@media (prefers-reduced-motion: reduce) {
+  .mobile-menu,
+  .hamburger-bar {
+    transition-duration: 0.01ms !important;
+  }
+}

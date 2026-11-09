@@ -1,8 +1,9 @@
 import SkipLink from "@/components/SkipLink";
 import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
+import BrandProof from "@/components/BrandProof";
+import FeaturedDishes from "@/components/FeaturedDishes";
 import OurStory from "@/components/OurStory";
-import UniqueSection from "@/components/UniqueSection";
 import LocationsSection from "@/components/LocationsSection";
 import BrasaPointsSection from "@/components/BrasaPointsSection";
 import ContactSection from "@/components/ContactSection";
@@ -16,8 +17,9 @@ export default function Home() {
       <Header />
       <main id="main-content">
         <HeroSection />
+        <BrandProof />
+        <FeaturedDishes />
         <OurStory />
-        <UniqueSection />
         <LocationsSection />
         <BrasaPointsSection />
         <ContactSection />
