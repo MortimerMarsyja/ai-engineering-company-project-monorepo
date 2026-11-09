@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import AuthPanel from "@/components/AuthPanel";
 import FormField from "@/components/FormField";
+import Button from "@/components/Button";
 import {
   AuthRequestError,
   decodeJwtPayload,
@@ -23,6 +25,7 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationSucceeded, setRegistrationSucceeded] = useState(false);
   const [passwordResetSucceeded, setPasswordResetSucceeded] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
   useEffect(() => {
     const success = window.sessionStorage.getItem(
@@ -127,7 +130,7 @@ export default function LoginPage() {
     >
       {registrationSucceeded ? (
         <p
-          className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800"
+          className="mb-4 rounded-md border border-success-border bg-success-bg px-3 py-2.5 text-sm text-success"
           role="status"
         >
           Account created. Sign in with your new credentials.
@@ -136,7 +139,7 @@ export default function LoginPage() {
 
       {passwordResetSucceeded ? (
         <p
-          className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800"
+          className="mb-4 rounded-md border border-success-border bg-success-bg px-3 py-2.5 text-sm text-success"
           role="status"
         >
           Password reset successfully. Sign in with your new password.
@@ -157,11 +160,26 @@ export default function LoginPage() {
         <FormField
           id="login-password"
           name="password"
-          type="password"
+          type={isPasswordVisible ? "text" : "password"}
           label="Password"
           autoComplete="current-password"
           required
           error={errors.password}
+          trailingAction={
+            <button
+              type="button"
+              onClick={() => setIsPasswordVisible((v) => !v)}
+              aria-label={isPasswordVisible ? "Hide password" : "Show password"}
+              aria-pressed={isPasswordVisible}
+              className="rounded p-1 text-[#221810]/45 outline-none transition-colors hover:text-[#221810]/70 focus-visible:ring-2 focus-visible:ring-brasa-red"
+            >
+              {isPasswordVisible ? (
+                <EyeOff aria-hidden="true" className="size-4" />
+              ) : (
+                <Eye aria-hidden="true" className="size-4" />
+              )}
+            </button>
+          }
         />
         <div className="text-right">
           <Link
@@ -173,18 +191,14 @@ export default function LoginPage() {
         </div>
 
         {errors.form && !errors.password ? (
-          <p className="text-sm text-rose-600" role="alert">
+          <p className="text-sm text-brasa-error" role="alert">
             {errors.form}
           </p>
         ) : null}
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="flex min-h-11 w-full items-center justify-center rounded-md bg-brasa-red px-4 py-2.5 text-sm font-semibold text-white outline-none transition-colors hover:bg-brasa-red-dark focus-visible:ring-2 focus-visible:ring-brasa-red focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-        >
+        <Button type="submit" loading={isSubmitting} className="w-full" size="lg">
           {isSubmitting ? "Signing in..." : "Sign in"}
-        </button>
+        </Button>
       </form>
     </AuthPanel>
   );

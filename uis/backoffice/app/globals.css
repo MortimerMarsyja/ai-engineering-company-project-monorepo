@@ -1,21 +1,94 @@
 @import "tailwindcss";
 
+/* Design tokens — centralized here so every component/page pulls from the
+ * same source instead of hand-rolling colors (Tailwind zinc/indigo/rose
+ * grays scattered per-file was the main inconsistency found in this app's
+ * visual audit).
+ *
+ * Brand colors are copied VERBATIM from uis/brasaland-web/app/globals.css
+ * (the public site's corporate tokens) — not reinvented. The backoffice
+ * previously defined its own slightly-off brasa-red (#c83e2c vs the real
+ * #b23a21), which this reconciles.
+ *
+ * Semantic state colors (success/warning/error/info) are a NEW, separate
+ * set — intentionally not brand colors, so "this is a primary action"
+ * (brasa-red) and "this failed" (error) read as different signals even
+ * though both happen to be in the red family. `--color-error` reuses the
+ * existing `brasa-error` brand token (already distinct from brasa-red in
+ * the source palette) rather than inventing a third red.
+ */
 @theme inline {
-  --color-brasa-red: #c83e2c;
-  --color-brasa-red-dark: #a83024;
-  --color-brasa-brown: #3d2013;
-  --color-brasa-gold: #d4a84b;
-  --color-brasa-cream: #faf6f1;
-  --color-brasa-orange: #e07a3a;
+  /* Brand — verbatim from brasaland-web/app/globals.css */
+  --font-barlow: "Barlow", sans-serif;
+  --font-oswald: "Oswald", sans-serif;
+
+  --color-brasa-cream: #f9ede0;
+  --color-brasa-cream-light: #fff7ec;
+  --color-brasa-bg: #f4efe6;
+  --color-brasa-brown-dark: #2e1f16;
+  --color-brasa-brown: #3a1f14;
+  --color-brasa-brown-mid: #3a271b;
+  --color-brasa-text: #1f1a14;
+  --color-brasa-text-secondary: #5f4432;
+  --color-brasa-gold: #ffca8f;
+  --color-brasa-gold-light: #fff1dc;
+  --color-brasa-orange: #d45d2f;
+  --color-brasa-red: #b23a21;
+  --color-brasa-red-dark: #932d19;
+  --color-brasa-red-deep: #a3321f;
+  --color-brasa-error: #a12e1b;
+  --color-brasa-border: #3a1f14;
+
+  /* Admin-surface neutrals — light and legible, per this app's purpose
+   * (an operational tool, not the marketing site's cream wash). */
+  --color-surface: #ffffff;
+  --color-surface-muted: #faf8f5;
+  --color-admin-border: #e7e2da;
+
+  /* Semantic states — distinct from brand red, never color-only (every
+   * usage in this app pairs these with an icon and/or text label). */
+  --color-success: #15803d;
+  --color-success-bg: #eefbf3;
+  --color-success-border: #bfe8cf;
+  --color-warning: #b45309;
+  --color-warning-bg: #fffaeb;
+  --color-warning-border: #f3dca3;
+  --color-info: #1d4ed8;
+  --color-info-bg: #eff5ff;
+  --color-info-border: #bfd4fb;
+  --color-error-bg: #fdf1ef;
+  --color-error-border: #f0c7bd;
 }
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #221810;
+}
+
+html,
+body {
+  /* Defensive: the mobile nav drawer (components/Sidebar.tsx) is a
+   * `position: fixed` element translated off-screen via Tailwind's
+   * `-translate-x-full` when closed — in this browser's layout model that
+   * can still inflate `document.documentElement.scrollWidth` even though
+   * nothing is actually visible or reachable by scrolling
+   * (`document.body.scrollWidth` stays correct). This keeps any such
+   * phantom width from ever becoming a real, scrollable overflow. */
+  overflow-x: hidden;
 }
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-barlow), system-ui, -apple-system, sans-serif;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Headings use the same display font as the public site for brand
+ * consistency, applied once here rather than repeated per-component. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-oswald), system-ui, -apple-system, sans-serif;
 }
 
 /* Custom scrollbar */
@@ -35,4 +108,17 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
+}
+
+/* Respect the OS "reduce motion" preference across the app — a single
+ * global rule rather than remembering it per hand-written transition. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

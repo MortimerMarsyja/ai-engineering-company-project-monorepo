@@ -31,7 +31,7 @@ export default function CheckboxGroup<T extends string>({
               type="checkbox"
               checked={selected.includes(opt.value)}
               onChange={(e) => onToggle(opt.value, e.target.checked)}
-              className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-zinc-300 text-brasa-red focus:ring-brasa-red"
             />
             {opt.label}
           </label>

@@ -2,8 +2,9 @@
 
 import { usePathname } from "next/navigation";
 import { useReportWebVitals } from "next/web-vitals";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { Menu } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import PageSkeleton from "@/components/PageSkeleton";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
@@ -24,6 +25,7 @@ export default function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const isPublicRoute = publicRoutes.has(pathname);
   const { status, error, retry } = useAuthGuard(pathname, isPublicRoute);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   // Started once for the whole app lifetime (mounted exactly once in
   // app/layout.tsx, for both public and authenticated routes). initTelemetry
@@ -99,12 +101,29 @@ export default function AppShell({ children }: AppShellProps) {
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="ml-[168px] min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
-        <PageSkeleton loading={status === "checking"}>
-          {children}
-        </PageSkeleton>
-      </main>
+      <Sidebar isMobileOpen={isMobileNavOpen} onMobileClose={() => setIsMobileNavOpen(false)} />
+      <div className="min-w-0 flex-1 lg:ml-42">
+        {/* Mobile-only top bar: the sidebar is a hidden drawer below `lg`
+            (see Sidebar.tsx), so this is the only way to reach it there —
+            without it, every page below `lg` would have no navigation at
+            all other than the browser back button. */}
+        <div className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-gray-200 bg-white px-4 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setIsMobileNavOpen(true)}
+            aria-label="Open navigation"
+            className="rounded-md p-1.5 text-gray-600 outline-none hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-brasa-red"
+          >
+            <Menu aria-hidden="true" className="size-5" />
+          </button>
+          <span className="text-sm font-bold text-gray-900">Brasaland</span>
+        </div>
+        <main className="p-4 sm:p-6 lg:p-8">
+          <PageSkeleton loading={status === "checking"}>
+            {children}
+          </PageSkeleton>
+        </main>
+      </div>
     </div>
   );
 }

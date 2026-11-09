@@ -90,7 +90,7 @@ export default function CandidateFilters({ searchParams }: { searchParams: Pick<
           placeholder="Search candidates…"
           defaultValue={currentSearch}
           onChange={handleSearchChange}
-          className="w-full rounded-lg border border-zinc-300 bg-white py-2 pl-10 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+          className="w-full rounded-lg border border-zinc-300 bg-white py-2 pl-10 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-brasa-red focus:outline-none focus:ring-2 focus:ring-brasa-red/20"
         />
       </div>
 
@@ -113,7 +113,7 @@ export default function CandidateFilters({ searchParams }: { searchParams: Pick<
         <button
           type="button"
           onClick={clearFilters}
-          className="self-start text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+          className="self-start text-xs font-medium text-brasa-red hover:text-brasa-red-dark hover:underline"
         >
           Clear all filters
         </button>

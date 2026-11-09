@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { ArrowRight } from "lucide-react";
 import PageSkeleton, { usePageLoading } from "@/components/PageSkeleton";
 import PageHeader from "@/components/PageHeader";
 import ErrorState from "@/components/ErrorState";
 import ProductsTable from "@/components/ProductsTable";
+import { buttonClassName } from "@/components/Button";
 import { fetchProducts } from "@/lib/inventory-api";
 import { isRetryableError } from "@/lib/api-error";
 import type { Product } from "@/lib/inventory-types";
@@ -52,25 +54,23 @@ export default function InventoryPage() {
           description="Stock on hand across every Brasaland location."
           actions={
             <div className="flex gap-2">
-              <Link
-                href="/inventory/exits/new"
-                className="inline-flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-              >
+              <Link href="/inventory/exits/new" className={buttonClassName("secondary")}>
                 Log exit
               </Link>
-              <Link
-                href="/inventory/deliveries/new"
-                className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
-              >
+              <Link href="/inventory/deliveries/new" className={buttonClassName("primary")}>
                 + Register delivery
               </Link>
             </div>
           }
         />
 
-        <div className="flex items-center gap-2 text-sm">
-          <Link href="/inventory/orders" className="font-medium text-indigo-600 hover:text-indigo-800 hover:underline">
-            View full order history →
+        <div className="flex items-center gap-1.5 text-sm">
+          <Link
+            href="/inventory/orders"
+            className="inline-flex items-center gap-1 rounded-md font-medium text-brasa-red outline-none hover:text-brasa-red-dark hover:underline focus-visible:ring-2 focus-visible:ring-brasa-red focus-visible:ring-offset-2"
+          >
+            View full order history
+            <ArrowRight aria-hidden="true" className="size-3.5" />
           </Link>
         </div>
 
@@ -80,7 +80,7 @@ export default function InventoryPage() {
             onRetry={isRetryableError(error) ? loadProducts : undefined}
           />
         ) : products.length === 0 && !isLoading ? (
-          <div className="rounded-lg border border-dashed border-zinc-300 px-4 py-12 text-center text-sm text-zinc-500">
+          <div className="rounded-lg border border-dashed border-admin-border px-4 py-12 text-center text-sm text-zinc-500">
             No products found.
           </div>
         ) : (

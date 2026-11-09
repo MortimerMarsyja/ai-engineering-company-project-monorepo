@@ -88,7 +88,7 @@ function HiringContent({ searchParams }: { searchParams: Pick<URLSearchParams, "
           actions={
             <Link
               href="/hiring/new"
-              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:ring-offset-1"
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-brasa-red px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brasa-red-dark focus:outline-none focus:ring-2 focus:ring-brasa-red/20 focus:ring-offset-1"
             >
               <svg
                 viewBox="0 0 20 20"
