@@ -52,7 +52,7 @@ export default function CandidateUpdate({
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="inline-flex items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+          className="inline-flex items-center justify-center rounded-lg border border-brasa-red/20 bg-brasa-red/10 px-4 py-2 text-sm font-medium text-brasa-red-dark transition-colors hover:bg-brasa-red/15 focus:outline-none focus:ring-2 focus:ring-brasa-red/20"
         >
           Update status / stage
         </button>
@@ -99,7 +99,7 @@ export default function CandidateUpdate({
           type="button"
           onClick={handleSave}
           disabled={!dirty || saving}
-          className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-zinc-300"
+          className="inline-flex items-center justify-center rounded-lg bg-brasa-red px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brasa-red-dark focus:outline-none focus:ring-2 focus:ring-brasa-red/20 focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-zinc-300"
         >
           {saving ? "Saving…" : "Save changes"}
         </button>

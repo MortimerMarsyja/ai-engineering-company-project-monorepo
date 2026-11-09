@@ -68,12 +68,12 @@ export default function CandidateNotes({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Add a note about this candidate…"
-          className="flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+          className="flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-brasa-red focus:outline-none focus:ring-2 focus:ring-brasa-red/20"
         />
         <button
           type="submit"
           disabled={!draft.trim() || submitting}
-          className="inline-flex shrink-0 items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:text-zinc-300"
+          className="inline-flex shrink-0 items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-brasa-red/20 disabled:cursor-not-allowed disabled:text-zinc-300"
         >
           {submitting ? "Adding…" : "Add note"}
         </button>

@@ -72,7 +72,7 @@ export default function ProductsTable({ products }: ProductsTableProps) {
                 <td className="px-4 py-3">
                   <Link
                     href={`/inventory/products/${product.id}/edit`}
-                    className="font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+                    className="font-medium text-brasa-red hover:text-brasa-red-dark hover:underline"
                   >
                     Edit
                   </Link>

@@ -1,3 +1,4 @@
+import { DollarSign, ClipboardList, Users, Star } from "lucide-react";
 import {
   generateDailySales,
   getRevenueByCountry,
@@ -8,11 +9,14 @@ import {
   brasaPointsMembers,
   recentOrders,
 } from "../../lib/data";
+import PageHeader from "../../components/PageHeader";
 import KPICard from "../../components/KPICard";
 import SalesChart from "../../components/SalesChart";
 import RevenueByCountry from "../../components/RevenueByCountry";
 import RecentOrdersTable from "../../components/RecentOrdersTable";
 import TopMembersList from "../../components/TopMembersList";
+
+const ICON_CLASS = "size-5";
 
 export default function DashboardPage() {
   const sales = generateDailySales();
@@ -43,43 +47,40 @@ export default function DashboardPage() {
     : 0;
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-sm text-gray-500">
-          Brasaland operations overview — September 2026
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Dashboard"
+        description="Brasaland operations overview — September 2026"
+      />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KPICard
           title="Total Revenue (30d)"
           value={`$${totalRevenue.toLocaleString()}`}
           subtitle="USD equivalent"
           trend={revenueTrend}
-          icon="💰"
+          icon={<DollarSign aria-hidden="true" className={ICON_CLASS} />}
         />
         <KPICard
           title="Total Orders (30d)"
           value={totalOrders.toLocaleString()}
           subtitle={`Across ${locations.length} locations`}
           trend={5.2}
-          icon="📋"
+          icon={<ClipboardList aria-hidden="true" className={ICON_CLASS} />}
         />
         <KPICard
           title="Active Members"
           value={getTotalMembers().toLocaleString()}
           subtitle="Brasa Points program"
           trend={12.8}
-          icon="👥"
+          icon={<Users aria-hidden="true" className={ICON_CLASS} />}
         />
         <KPICard
           title="Points in Circulation"
           value={getTotalPointsInCirculation().toLocaleString()}
           subtitle="Pending redemption"
-          icon="⭐"
+          icon={<Star aria-hidden="true" className={ICON_CLASS} />}
         />
       </div>
 

@@ -1,9 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import Toast from "./Toast";
-
-type ToastKind = "success" | "error";
+import Toast, { type ToastKind } from "./Toast";
 
 interface ToastItem {
   id: string;
@@ -16,6 +14,10 @@ export interface ToastContextValue {
   success: (message: string) => void;
   /** Show an error toast. Stays up longer than success — more to read. */
   error: (message: string) => void;
+  /** Show a warning toast (e.g. a non-blocking data-quality note). */
+  warning: (message: string) => void;
+  /** Show an informational toast (neutral, not success or a problem). */
+  info: (message: string) => void;
   /** Dismiss a toast before its timer fires (rarely needed directly). */
   dismiss: (id: string) => void;
 }
@@ -24,6 +26,8 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 
 const AUTO_DISMISS_MS: Record<ToastKind, number> = {
   success: 4000,
+  info: 4000,
+  warning: 6000,
   error: 6000,
 };
 
@@ -66,6 +70,8 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
     () => ({
       success: (message: string) => show("success", message),
       error: (message: string) => show("error", message),
+      warning: (message: string) => show("warning", message),
+      info: (message: string) => show("info", message),
       dismiss,
     }),
     [show, dismiss],
