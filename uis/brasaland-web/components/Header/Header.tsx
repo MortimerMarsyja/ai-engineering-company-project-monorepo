@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Logo from "@/components/Logo";
 
 const NAV_LINKS = [
   { label: "Home", href: "#home" },
@@ -24,9 +25,12 @@ export default function Header() {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         {/* Logo row + hamburger */}
         <div className="flex items-center justify-between gap-4">
-          <h2 className="font-oswald text-2xl uppercase tracking-widest">
-            Brasaland
-          </h2>
+          <div className="flex items-center gap-2.5">
+            <Logo />
+            <h2 className="font-oswald text-2xl uppercase tracking-widest">
+              Brasaland
+            </h2>
+          </div>
 
           {/* Hamburger button — visible on mobile only */}
           <button

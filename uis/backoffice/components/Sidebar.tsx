@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BarChart3,
   Boxes,
   ClipboardList,
-  Flame,
   Gauge,
   Handshake,
   LogOut,
@@ -17,15 +17,19 @@ import {
   Users,
   X,
 } from "lucide-react";
+import Logo from "@/components/Logo";
 import { logout } from "@/lib/authenticated-fetch";
 import {
   getCurrentAccount,
+  isStaffRole,
   PROFILE_UPDATED_EVENT,
   type Profile,
+  type UserRole,
 } from "@/lib/profile";
 
 interface SidebarAccount {
   email: string;
+  role: UserRole;
   profile: Profile;
 }
 
@@ -47,15 +51,25 @@ function getInitials(name: string, email: string) {
   return (initials || email[0] || "?").toUpperCase();
 }
 
-const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: Gauge },
-  { name: "Locations", href: "/locations", icon: MapPin },
-  { name: "Orders", href: "/orders", icon: ClipboardList },
-  { name: "Incidents", href: "/incidents", icon: TriangleAlert },
-  { name: "Brasa Points", href: "/loyalty", icon: Star },
-  { name: "Hiring", href: "/hiring", icon: Users },
-  { name: "Suppliers", href: "/suppliers", icon: Handshake },
-  { name: "Inventory", href: "/inventory", icon: Boxes },
+const navigation: { name: string; href: string; icon: typeof Gauge; activeMatch: string[]; staffOnly?: boolean }[] = [
+  { name: "Dashboard", href: "/dashboard", icon: Gauge, activeMatch: ["/dashboard"] },
+  { name: "Locations", href: "/locations", icon: MapPin, activeMatch: ["/locations"] },
+  { name: "Orders", href: "/orders", icon: ClipboardList, activeMatch: ["/orders"] },
+  { name: "Incidents", href: "/incidents", icon: TriangleAlert, activeMatch: ["/incidents"] },
+  {
+    name: "Reports",
+    href: "/reports",
+    icon: BarChart3,
+    activeMatch: ["/reports", "/reporting", "/telemetry-report"],
+    // Both report pages call require_staff (admin/manager) endpoints —
+    // hidden for everyone else so a "user"-role account never lands on a
+    // link that would just reject them (see RestrictedState/useStaffGate).
+    staffOnly: true,
+  },
+  { name: "Brasa Points", href: "/loyalty", icon: Star, activeMatch: ["/loyalty"] },
+  { name: "Hiring", href: "/hiring", icon: Users, activeMatch: ["/hiring"] },
+  { name: "Suppliers", href: "/suppliers", icon: Handshake, activeMatch: ["/suppliers"] },
+  { name: "Inventory", href: "/inventory", icon: Boxes, activeMatch: ["/inventory"] },
 ];
 
 export default function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
@@ -92,16 +106,23 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }: Sidebar
     };
   }, []);
 
-  const displayName = account?.profile?.name?.trim() || account?.email || "Account";
-  const email = account?.email ?? (accountFailed ? "Unavailable" : "Loading…");
-  const initials = getInitials(account?.profile?.name?.trim() ?? "", account?.email ?? "");
-
   // Close the mobile drawer on every navigation — otherwise it stays open
   // over the newly-loaded page.
   useEffect(() => {
     onMobileClose?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
+
+  const displayName = account?.profile?.name?.trim() || account?.email || "Account";
+  const email = account?.email ?? (accountFailed ? "Unavailable" : "Loading…");
+  const initials = getInitials(account?.profile?.name?.trim() ?? "", account?.email ?? "");
+
+  // Hidden until the role is positively known to be staff — both while
+  // still loading and if the account turned out not to be staff (or the
+  // check failed), so a "user"-role account never even sees the link
+  // flash before disappearing.
+  const isStaff = account !== null && isStaffRole(account.role);
+  const visibleNavigation = navigation.filter((item) => !item.staffOnly || isStaff);
 
   return (
     <>
@@ -129,9 +150,7 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }: Sidebar
             title="Brasaland"
             className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-brasa-red focus-visible:ring-offset-2"
           >
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brasa-red text-white shadow-sm transition-colors hover:bg-brasa-red-dark">
-              <Flame aria-hidden="true" className="size-5" strokeWidth={2.25} />
-            </span>
+            <Logo />
             <span className="text-sm font-bold text-gray-900">Brasaland</span>
           </Link>
           <button
@@ -146,8 +165,8 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }: Sidebar
 
         <nav className="flex-1 overflow-y-auto py-3 sm:py-4">
           <ul className="flex flex-col gap-1.5 px-2.5">
-            {navigation.map((item) => {
-              const isActive = pathname.startsWith(item.href);
+            {visibleNavigation.map((item) => {
+              const isActive = item.activeMatch.some((candidate) => pathname.startsWith(candidate));
               const Icon = item.icon;
 
               return (

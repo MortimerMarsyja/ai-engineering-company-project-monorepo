@@ -1,7 +1,7 @@
-import { Flame } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import Logo from "@/components/Logo";
 
 interface AuthPanelProps {
   title: string;
@@ -44,9 +44,7 @@ export default function AuthPanel({
         />
         <div className="absolute inset-0 bg-linear-to-t from-brasa-brown-dark via-brasa-brown-dark/70 to-brasa-brown-dark/30" />
         <div className="relative flex h-full flex-col justify-between p-10 text-brasa-cream">
-          <span className="flex size-11 items-center justify-center rounded-xl bg-brasa-red shadow-lg">
-            <Flame aria-hidden="true" className="size-6" strokeWidth={2.25} />
-          </span>
+          <Logo size="size-11" />
           <div>
             <p className="font-oswald text-3xl uppercase leading-tight">
               Operations,
@@ -68,9 +66,7 @@ export default function AuthPanel({
             href="/login"
             className="flex w-fit items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-brasa-red focus-visible:ring-offset-2 lg:hidden"
           >
-            <span className="flex size-9 items-center justify-center rounded-lg bg-brasa-red text-white">
-              <Flame aria-hidden="true" className="size-5" strokeWidth={2.25} />
-            </span>
+            <Logo />
             <span>
               <span className="block text-sm font-bold text-[#221810]">Brasaland</span>
               <span className="block text-xs text-[#221810]/55">Backoffice</span>
