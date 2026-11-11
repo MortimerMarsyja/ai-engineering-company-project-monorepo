@@ -101,7 +101,7 @@ export default function CandidatesTable({
                   <Link
                     href={`/hiring/${candidate.id}/edit`}
                     aria-label={`Edit ${candidate.full_name}`}
-                    className="relative z-10 inline-flex items-center justify-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                    className="relative z-10 inline-flex items-center justify-center gap-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-600 transition-colors hover:border-brasa-red/40 hover:bg-brasa-red/10 hover:text-brasa-red focus:outline-none focus:ring-2 focus:ring-brasa-red/20"
                   >
                     <svg
                       viewBox="0 0 20 20"

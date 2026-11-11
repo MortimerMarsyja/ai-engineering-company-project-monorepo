@@ -19,8 +19,13 @@
 services:
   ui:
     build:
-      context: ./uis
-      dockerfile: Dockerfile
+      # Context is the repo root (not ./uis) so the Dockerfile can also
+      # COPY packages/shared — backoffice depends on it via
+      # "@repo/shared-types": "workspace:*", which pnpm can only resolve
+      # inside an actual (even if minimal) pnpm workspace, not from
+      # backoffice/package.json alone.
+      context: .
+      dockerfile: uis/Dockerfile
     env_file:
       - ./.env
     volumes:

@@ -2,7 +2,6 @@ export default function Footer() {
   return (
     <footer
       className="border-t border-brasa-brown/15 bg-brasa-brown-dark text-brasa-gold/80"
-      style={{ contentVisibility: "auto", containIntrinsicSize: "1px 120px" }}
     >
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 py-6 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <p>&copy; 2025 Brasaland. All rights reserved.</p>

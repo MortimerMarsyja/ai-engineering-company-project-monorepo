@@ -43,7 +43,7 @@ export default function CandidateDetails({ candidate, notes = [] }: { candidate:
           <InfoRow label="Email">
             <a
               href={`mailto:${candidate.email}`}
-              className="text-indigo-600 hover:underline"
+              className="text-brasa-red hover:underline"
             >
               {candidate.email}
             </a>
@@ -55,7 +55,7 @@ export default function CandidateDetails({ candidate, notes = [] }: { candidate:
                 href={candidate.linkedin_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-indigo-600 hover:underline"
+                className="text-brasa-red hover:underline"
               >
                 View profile
               </a>
@@ -69,7 +69,7 @@ export default function CandidateDetails({ candidate, notes = [] }: { candidate:
                 href={candidate.cv_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-indigo-600 hover:underline"
+                className="text-brasa-red hover:underline"
               >
                 Download CV
               </a>

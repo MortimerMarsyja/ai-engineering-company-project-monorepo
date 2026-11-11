@@ -109,7 +109,7 @@ export default function IncidentForm() {
             className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 ${
               errors.description
                 ? "border-rose-300 focus:border-rose-500 focus:ring-rose-200"
-                : "border-zinc-300 focus:border-indigo-500 focus:ring-indigo-200"
+                : "border-zinc-300 focus:border-brasa-red focus:ring-brasa-red/20"
             }`}
           />
           {errors.description ? (

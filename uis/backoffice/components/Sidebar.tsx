@@ -7,7 +7,6 @@ import {
   BarChart3,
   Boxes,
   ClipboardList,
-  Flame,
   Gauge,
   Handshake,
   LogOut,
@@ -16,7 +15,9 @@ import {
   Star,
   TriangleAlert,
   Users,
+  X,
 } from "lucide-react";
+import Logo from "@/components/Logo";
 import { logout } from "@/lib/authenticated-fetch";
 import {
   getCurrentAccount,
@@ -30,6 +31,13 @@ interface SidebarAccount {
   email: string;
   role: UserRole;
   profile: Profile;
+}
+
+export interface SidebarProps {
+  /** Mobile drawer open state — ignored at the `lg` breakpoint and up,
+   * where the sidebar is always visible as a static column. */
+  isMobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 function getInitials(name: string, email: string) {
@@ -64,7 +72,7 @@ const navigation: { name: string; href: string; icon: typeof Gauge; activeMatch:
   { name: "Inventory", href: "/inventory", icon: Boxes, activeMatch: ["/inventory"] },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const [account, setAccount] = useState<SidebarAccount | null>(null);
   const [accountFailed, setAccountFailed] = useState(false);
@@ -98,6 +106,13 @@ export default function Sidebar() {
     };
   }, []);
 
+  // Close the mobile drawer on every navigation — otherwise it stays open
+  // over the newly-loaded page.
+  useEffect(() => {
+    onMobileClose?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
   const displayName = account?.profile?.name?.trim() || account?.email || "Account";
   const email = account?.email ?? (accountFailed ? "Unavailable" : "Loading…");
   const initials = getInitials(account?.profile?.name?.trim() ?? "", account?.email ?? "");
@@ -110,62 +125,82 @@ export default function Sidebar() {
   const visibleNavigation = navigation.filter((item) => !item.staffOnly || isStaff);
 
   return (
-    <aside
-      aria-label="Primary navigation"
-      className="fixed inset-y-0 left-0 z-30 flex w-[168px] flex-col border-r border-gray-200 bg-white text-gray-500 shadow-sm"
-    >
-      <div className="flex h-16 items-center border-b border-gray-100 px-4 sm:h-[72px]">
-        <Link
-          href="/dashboard"
-          aria-label="Brasaland dashboard"
-          title="Brasaland"
-          className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-brasa-red focus-visible:ring-offset-2"
-        >
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brasa-red text-white shadow-sm transition-colors hover:bg-brasa-red-dark">
-            <Flame aria-hidden="true" className="size-5" strokeWidth={2.25} />
-          </span>
-          <span className="text-sm font-bold text-gray-900">Brasaland</span>
-        </Link>
-      </div>
+    <>
+      {/* Backdrop — mobile/tablet only, below `lg` where the sidebar
+          becomes a permanent static column instead of a drawer. */}
+      {isMobileOpen ? (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          onClick={onMobileClose}
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+        />
+      ) : null}
 
-      <nav className="flex-1 py-3 sm:py-4">
-        <ul className="flex flex-col gap-1.5 px-2.5">
-          {visibleNavigation.map((item) => {
-            const isActive = item.activeMatch.some((candidate) => pathname.startsWith(candidate));
-            const Icon = item.icon;
+      <aside
+        aria-label="Primary navigation"
+        className={`fixed inset-y-0 left-0 z-40 flex w-55 flex-col border-r border-gray-200 bg-white text-gray-500 shadow-xl transition-transform duration-200 ease-out motion-reduce:transition-none lg:w-42 lg:translate-x-0 lg:shadow-sm ${
+          isMobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="flex h-16 items-center justify-between border-b border-gray-100 px-4 sm:h-[72px]">
+          <Link
+            href="/dashboard"
+            aria-label="Brasaland dashboard"
+            title="Brasaland"
+            className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-brasa-red focus-visible:ring-offset-2"
+          >
+            <Logo />
+            <span className="text-sm font-bold text-gray-900">Brasaland</span>
+          </Link>
+          <button
+            type="button"
+            onClick={onMobileClose}
+            aria-label="Close navigation"
+            className="rounded-md p-1.5 text-gray-400 outline-none hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-brasa-red lg:hidden"
+          >
+            <X aria-hidden="true" className="size-5" />
+          </button>
+        </div>
 
-            return (
-              <li key={item.name}>
-                <Link
-                  href={item.href}
-                  aria-current={isActive ? "page" : undefined}
-                  title={item.name}
-                  className={`flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-brasa-red focus-visible:ring-offset-2 ${
-                    isActive
-                      ? "bg-red-50 text-brasa-red"
-                      : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-                  }`}
-                >
-                  <Icon
-                    aria-hidden="true"
-                    className="size-5 shrink-0"
-                    strokeWidth={2}
-                  />
-                  <span>{item.name}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+        <nav className="flex-1 overflow-y-auto py-3 sm:py-4">
+          <ul className="flex flex-col gap-1.5 px-2.5">
+            {visibleNavigation.map((item) => {
+              const isActive = item.activeMatch.some((candidate) => pathname.startsWith(candidate));
+              const Icon = item.icon;
 
-      <div className="border-t border-gray-100">
-        <Link
-          href="/account/profile"
-          title="View account profile"
-          aria-label={`View profile for ${displayName}`}
-          className="flex items-center gap-2.5 px-4 py-3 outline-none transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brasa-red"
-        >
+              return (
+                <li key={item.name}>
+                  <Link
+                    href={item.href}
+                    aria-current={isActive ? "page" : undefined}
+                    title={item.name}
+                    className={`flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-brasa-red focus-visible:ring-offset-2 ${
+                      isActive
+                        ? "bg-brasa-red/10 text-brasa-red"
+                        : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                    }`}
+                  >
+                    <Icon
+                      aria-hidden="true"
+                      className="size-5 shrink-0"
+                      strokeWidth={2}
+                    />
+                    <span>{item.name}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        <div className="border-t border-gray-100">
+          <Link
+            href="/account/profile"
+            title="View account profile"
+            aria-label={`View profile for ${displayName}`}
+            className="flex items-center gap-2.5 px-4 py-3 outline-none transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brasa-red"
+          >
           <div
             className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brasa-brown text-xs font-semibold text-white"
             aria-hidden="true"
@@ -188,7 +223,8 @@ export default function Sidebar() {
           <LogOut aria-hidden="true" className="size-4" />
           Log out
         </button>
-      </div>
-    </aside>
+        </div>
+      </aside>
+    </>
   );
 }

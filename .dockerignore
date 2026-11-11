@@ -1,0 +1,40 @@
+# Applies to the repo-root build context — currently only the `ui` service
+# in docker-compose.yml, which builds uis/Dockerfile from the repo root
+# (not uis/) so it can also COPY packages/shared (see that Dockerfile's
+# comment for why). `backend`'s context is still ./services, governed by
+# services/.dockerignore, unaffected by this file.
+
+# Generic noise, wherever it appears.
+**/node_modules
+**/.next
+**/.env
+**/.env.*
+**/*.log
+**/.git
+**/.DS_Store
+**/coverage
+**/dist
+**/out
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+
+# Entire directories the ui image never needs — the Dockerfile only COPYs
+# uis/brasaland-web, uis/backoffice, and packages/shared; everything else
+# at root would otherwise bloat the build context for no reason.
+services
+data
+docs
+supabase
+scripts
+agents
+memory-bank
+skills
+src
+internal
+mcps
+workflows
+infra
+.claude
+.devcontainer

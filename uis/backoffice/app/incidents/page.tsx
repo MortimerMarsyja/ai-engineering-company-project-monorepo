@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { BarChart3, CircleDot, Loader, Star, Upload } from "lucide-react";
 import PageSkeleton, { usePageLoading } from "@/components/PageSkeleton";
 import PageHeader from "@/components/PageHeader";
 import KPICard from "@/components/KPICard";
 import IncidentsTable from "@/components/IncidentsTable";
 import FileDropzone from "@/components/FileDropzone";
 import ErrorState from "@/components/ErrorState";
+import { buttonClassName } from "@/components/Button";
 import { isPermissionError, isRetryableError } from "@/lib/api-error";
 import { fetchIncidentMetrics, fetchIncidents, analyzeIncidentsCsv } from "@/lib/incidents-api";
 import {
@@ -125,10 +127,7 @@ function IncidentsContent({
         title="Incident Manager"
         description="Log, track, and resolve operational incidents across every branch, HQ, and customer report."
         actions={
-          <Link
-            href="/incidents/new"
-            className="rounded-lg bg-brasa-red px-4 py-2 text-sm font-semibold text-white hover:bg-brasa-red/90"
-          >
+          <Link href="/incidents/new" className={buttonClassName("primary")}>
             Log Incident
           </Link>
         }
@@ -149,46 +148,54 @@ function IncidentsContent({
         )
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <KPICard title="Total Incidents" value={metrics?.total ?? "—"} subtitle="all time" icon="📊" />
+          <KPICard
+            title="Total Incidents"
+            value={metrics?.total ?? "—"}
+            subtitle="all time"
+            icon={<BarChart3 aria-hidden="true" className="size-5" />}
+          />
           <KPICard
             title="Open"
             value={metrics?.status_counts?.open ?? 0}
             subtitle="awaiting action"
-            icon="🟡"
+            icon={<CircleDot aria-hidden="true" className="size-5" />}
           />
           <KPICard
             title="In Progress"
             value={metrics?.status_counts?.in_progress ?? 0}
             subtitle="being worked"
-            icon="🔵"
+            icon={<Loader aria-hidden="true" className="size-5" />}
           />
           <KPICard
             title="Avg. Satisfaction"
             value={metrics?.avg_satisfaction_score != null ? metrics.avg_satisfaction_score.toFixed(2) : "—"}
             subtitle={`avg. resolution ${formatSeconds(metrics?.avg_resolution_seconds ?? null)}`}
-            icon="⭐"
+            icon={<Star aria-hidden="true" className="size-5" />}
           />
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-end gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      {/* Filters — a lightweight toolbar (bottom border, no card chrome)
+          rather than another bordered/shadowed box stacked on the ones
+          above, per this refresh's "don't turn every section into a card"
+          direction. */}
+      <div className="flex flex-wrap items-end gap-4 border-b border-admin-border pb-5">
         <div className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium text-zinc-700">Search</span>
+          <span className="font-medium text-[#221810]/80">Search</span>
           <input
             type="text"
             defaultValue={search}
             placeholder="Title or description…"
             onChange={(e) => setParam("search", e.target.value)}
-            className="w-56 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            className="w-56 rounded-lg border border-admin-border bg-white px-3 py-2 text-sm focus:border-brasa-red focus:outline-none focus:ring-2 focus:ring-brasa-red/20"
           />
         </div>
         <div className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium text-zinc-700">Status</span>
+          <span className="font-medium text-[#221810]/80">Status</span>
           <select
             value={status}
             onChange={(e) => setParam("status", e.target.value)}
-            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            className="rounded-lg border border-admin-border bg-white px-3 py-2 text-sm focus:border-brasa-red focus:outline-none focus:ring-2 focus:ring-brasa-red/20"
           >
             <option value="">All</option>
             {STATUS_OPTIONS.map((o) => (
@@ -197,11 +204,11 @@ function IncidentsContent({
           </select>
         </div>
         <div className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium text-zinc-700">Category</span>
+          <span className="font-medium text-[#221810]/80">Category</span>
           <select
             value={category}
             onChange={(e) => setParam("category", e.target.value)}
-            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            className="rounded-lg border border-admin-border bg-white px-3 py-2 text-sm focus:border-brasa-red focus:outline-none focus:ring-2 focus:ring-brasa-red/20"
           >
             <option value="">All</option>
             {CATEGORY_OPTIONS.map((o) => (
@@ -210,11 +217,11 @@ function IncidentsContent({
           </select>
         </div>
         <div className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium text-zinc-700">Origin</span>
+          <span className="font-medium text-[#221810]/80">Origin</span>
           <select
             value={origin}
             onChange={(e) => setParam("origin", e.target.value)}
-            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            className="rounded-lg border border-admin-border bg-white px-3 py-2 text-sm focus:border-brasa-red focus:outline-none focus:ring-2 focus:ring-brasa-red/20"
           >
             <option value="">All</option>
             {ORIGIN_OPTIONS.map((o) => (
@@ -225,8 +232,9 @@ function IncidentsContent({
         <button
           type="button"
           onClick={() => setShowImport((v) => !v)}
-          className="ml-auto rounded-lg px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100"
+          className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-[#221810]/70 outline-none hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-brasa-red"
         >
+          <Upload aria-hidden="true" className="size-4" />
           {showImport ? "Hide CSV import" : "Import from CSV"}
         </button>
       </div>
@@ -248,7 +256,7 @@ function IncidentsContent({
 
       {/* List — loading / fulfilled; the error state is shown above with a retry action */}
       {isLoading ? (
-        <div className="rounded-xl border border-gray-200 bg-white p-12 text-center text-sm text-gray-400">
+        <div className="rounded-xl border border-admin-border bg-white p-12 text-center text-sm text-gray-400">
           Loading incidents…
         </div>
       ) : !error ? (
@@ -264,7 +272,7 @@ function IncidentsContent({
 function AnalysisSummaryView({ analysis }: { analysis: AnalyzeSummary }) {
   const invalidBreakdown = analysis?.invalid_breakdown ?? [];
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+    <div className="rounded-xl border border-admin-border bg-white p-6 shadow-sm">
       <h3 className="mb-4 text-lg font-semibold text-gray-900">Import Results</h3>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Stat label="Total rows" value={analysis?.total_records ?? 0} />

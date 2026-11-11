@@ -152,12 +152,12 @@ function SupplierRow({
                 }
               }}
               autoFocus
-              className="w-16 rounded border border-indigo-300 px-1.5 py-0.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-200"
+              className="w-16 rounded border border-brasa-red/40 px-1.5 py-0.5 text-sm focus:border-brasa-red focus:outline-none focus:ring-1 focus:ring-brasa-red/20"
             />
             <button
               type="button"
               onClick={handleRateSave}
-              className="rounded bg-indigo-600 px-1.5 py-0.5 text-xs font-medium text-white hover:bg-indigo-700"
+              className="rounded bg-brasa-red px-1.5 py-0.5 text-xs font-medium text-white hover:bg-brasa-red-dark"
             >
               ✓
             </button>
@@ -203,7 +203,7 @@ function SupplierRow({
                 ? "Suspend supplier"
                 : "Reactivate supplier"
             }
-            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:ring-offset-1 ${
+            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brasa-red/20 focus:ring-offset-1 ${
               supplier.status === "active" ? "bg-emerald-500" : "bg-zinc-300"
             }`}
           >

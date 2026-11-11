@@ -1,32 +1,38 @@
+import type { ReactNode } from "react";
+
 interface KPICardProps {
   title: string;
   value: string | number;
   subtitle: string;
   trend?: number;
-  icon: string;
+  /** A lucide-react icon element, e.g. `<DollarSign className="size-5" />` —
+   * replaces the previous emoji prop for visual consistency with the rest
+   * of the app (lucide is already the icon set used everywhere else). */
+  icon: ReactNode;
 }
 
 export default function KPICard({ title, value, subtitle, trend, icon }: KPICardProps) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-500">{title}</p>
-          <p className="mt-2 text-3xl font-bold text-gray-900">{value}</p>
-          <p className="mt-1 text-xs text-gray-400">{subtitle}</p>
+    <div className="rounded-xl border border-admin-border bg-white p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-[#221810]/60">{title}</p>
+          <p className="mt-1.5 text-2xl font-bold text-[#221810]">{value}</p>
+          <p className="mt-1 text-xs text-[#221810]/45">{subtitle}</p>
         </div>
-        <span className="text-2xl">{icon}</span>
+        <span
+          aria-hidden="true"
+          className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brasa-red/10 text-brasa-red"
+        >
+          {icon}
+        </span>
       </div>
       {trend !== undefined && (
-        <div className="mt-4 flex items-center gap-2">
-          <span
-            className={`text-sm font-semibold ${
-              trend >= 0 ? "text-green-600" : "text-red-600"
-            }`}
-          >
+        <div className="mt-3 flex items-center gap-2">
+          <span className={`text-sm font-semibold ${trend >= 0 ? "text-success" : "text-brasa-error"}`}>
             {trend >= 0 ? "↑" : "↓"} {Math.abs(trend).toFixed(1)}%
           </span>
-          <span className="text-xs text-gray-400">vs last 7 days</span>
+          <span className="text-xs text-[#221810]/40">vs last 7 days</span>
         </div>
       )}
     </div>

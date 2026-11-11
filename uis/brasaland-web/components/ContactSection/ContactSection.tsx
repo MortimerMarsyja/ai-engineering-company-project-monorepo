@@ -10,7 +10,6 @@ export default function ContactSection() {
       id="contact"
       aria-labelledby="contact-heading"
       className="bg-brasa-brown-dark text-brasa-cream"
-      style={{ contentVisibility: "auto", containIntrinsicSize: "1px 300px" }}
     >
       <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 md:py-16">
         <h2
