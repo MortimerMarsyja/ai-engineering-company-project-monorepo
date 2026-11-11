@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from prefect import task
+from prefect import flow, task
 
 SNAPSHOT_DIR = Path(__file__).resolve().parent / "snapshots"
 
@@ -44,3 +44,14 @@ def write_weekly_evaluation_snapshot(aggregated: pd.DataFrame, week_start: date)
     }
     path.write_text(json.dumps(payload, default=str, indent=2))
     return str(path)
+
+
+@flow(name="write_weekly_evaluation_snapshot_flow")
+def write_weekly_evaluation_snapshot_flow(aggregated: pd.DataFrame, week_start: date) -> str:
+    """Optional-step subflow — wraps the snapshot task above. `flow.py`
+    invokes *this* subflow (not the task directly) with `return_state=True`;
+    any failure here, including one raised by Prefect while running this
+    subflow itself, surfaces as this subflow's own failed state, never as
+    an exception propagating out of the main flow.
+    """
+    return write_weekly_evaluation_snapshot(aggregated, week_start)

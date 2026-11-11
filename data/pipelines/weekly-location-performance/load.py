@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pandas as pd
-from prefect import task
+from prefect import flow, task
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlmodel import Session
 
@@ -98,3 +98,14 @@ def load_weekly_location_performance(aggregated: pd.DataFrame) -> LoadResult:
         db.commit()
 
     return LoadResult(records_loaded=len(rows))
+
+
+@flow(name="load_weekly_location_performance_flow")
+def load_weekly_location_performance_flow(aggregated: pd.DataFrame) -> LoadResult:
+    """Carga subflow — docs/PIPELINE_DESIGN.md section 8/10.
+
+    Explicit input (`aggregated`) and output (`LoadResult`); wraps the
+    single upsert task above, keeping its retries and transactional
+    idempotency intact.
+    """
+    return load_weekly_location_performance(aggregated)

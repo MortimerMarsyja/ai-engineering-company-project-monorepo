@@ -12,7 +12,15 @@ import conftest  # noqa: F401
 from extract import extract_weekly_telemetry_events
 from load import load_weekly_location_performance
 from notify import write_weekly_evaluation_snapshot
-from transform import TRANSFORM_CACHE_EXPIRATION, transform_cache_key, transform_weekly_location_performance
+from transform import (
+    TRANSFORM_CACHE_EXPIRATION,
+    calculate_price_alert_frequency,
+    calculate_purchase_cost,
+    calculate_stockout_frequency,
+    calculate_waste_cost,
+    calculate_waste_ratio,
+    transform_cache_key,
+)
 
 
 def test_extract_has_retries_for_external_db_access():
@@ -25,10 +33,14 @@ def test_load_has_retries_for_external_db_access():
     assert load_weekly_location_performance.retry_delay_seconds == 20
 
 
-def test_transform_has_a_small_retry_margin():
+def test_transformation_tasks_have_a_small_retry_margin():
     # Pure-Pandas, no I/O — only a defensive margin, not a recovery
-    # strategy (see transform.py's task docstring/comment).
-    assert transform_weekly_location_performance.retries == 1
+    # strategy (see transform.py's task docstrings/comments).
+    assert calculate_purchase_cost.retries == 1
+    assert calculate_waste_cost.retries == 1
+    assert calculate_waste_ratio.retries == 1
+    assert calculate_stockout_frequency.retries == 1
+    assert calculate_price_alert_frequency.retries == 1
 
 
 def test_optional_step_has_no_retries():

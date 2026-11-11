@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 
 import pandas as pd
-from prefect import task
+from prefect import flow, task
 from sqlalchemy import select
 from sqlmodel import Session
 
@@ -98,3 +98,17 @@ def extract_weekly_telemetry_events(week_start: date) -> ExtractResult:
     with Session(engine) as db:
         raw_events = _fetch_weekly_events(db, start, end)
     return ExtractResult(raw_events=raw_events, records_read=len(raw_events))
+
+
+@flow(name="extract_weekly_telemetry_events_flow")
+def extract_weekly_telemetry_events_flow(week_start: date) -> ExtractResult:
+    """Extracción subflow — docs/PIPELINE_DESIGN.md sections 3/10.
+
+    Explicit input (`week_start`) and output (`ExtractResult`); wraps the
+    single extraction task above, keeping its retries intact. A thin
+    wrapper today because this report only needs one source
+    (`telemetry_events`) — further domain-table reads, if ever added,
+    would become additional tasks called from this same subflow, not a
+    change to its signature.
+    """
+    return extract_weekly_telemetry_events(week_start)

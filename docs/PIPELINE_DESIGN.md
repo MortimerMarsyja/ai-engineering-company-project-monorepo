@@ -422,37 +422,53 @@ Un operador debe poder ver ambos a la vez (p. ej. "el último intento falló hac
 
 ## 10. Mapeo a Prefect (Fase 4)
 
-> **Actualización — implementado.** Lo que sigue describía una propuesta cuando se escribió ("Prefect no está instalado hoy"); ya no es el caso. `prefect==3.4.5` está instalado (`services/api/pyproject.toml`), confirmado compatible con `sqlmodel`/`psycopg2-binary`/`pandas` ya fijados ahí (sin conflictos de resolución). El flow y las 3 tareas existen tal como se describen abajo, en los módulos exactos ya anticipados (`data/pipelines/weekly-location-performance/{flow,extract,transform,load}.py`), con un cuarto módulo adicional no previsto originalmente: `notify.py` (el paso opcional/no crítico de las Fases 1–2 del encargo de implementación — una instantánea JSON de evaluación, nunca un *block* de credenciales de Prefect: la conexión sigue resolviéndose vía `app.core.database.engine`/`DATABASE_URL`, igual que el resto de la API, sin introducir `prefect-sqlalchemy`). El resto de esta sección se deja como quedó escrita, ya verificada contra la implementación real salvo donde se anota lo contrario.
+> **Actualización — implementado.** Lo que sigue describía una propuesta cuando se escribió ("Prefect no está instalado hoy"); ya no es el caso. `prefect==3.4.5` está instalado (`services/api/pyproject.toml`), confirmado compatible con `sqlmodel`/`psycopg2-binary`/`pandas` ya fijados ahí (sin conflictos de resolución). El flow y las tareas existen tal como se describen abajo, en los módulos exactos ya anticipados (`data/pipelines/weekly-location-performance/{flow,extract,transform,load}.py`), con un cuarto módulo adicional no previsto originalmente: `notify.py` (el paso opcional/no crítico de las Fases 1–2 del encargo de implementación — una instantánea JSON de evaluación, nunca un *block* de credenciales de Prefect: la conexión sigue resolviéndose vía `app.core.database.engine`/`DATABASE_URL`, igual que el resto de la API, sin introducir `prefect-sqlalchemy`). El resto de esta sección se deja como quedó escrita, ya verificada contra la implementación real salvo donde se anota lo contrario.
+>
+> **Actualización — refactor en subflows (encargo "Refactoriza el pipeline de Prefect existente en subflows").** Lo que esta sección originalmente llamaba "3 tareas" invocadas directamente desde el flow principal ahora son **4 subflows** (`@flow`, no `@task`), cada uno envolviendo la(s) tarea(s) de su propia etapa. Ver el subapartado "Subflows y sus tareas" más abajo para el detalle módulo por módulo, y "Segundo flow (opcional) y subflows" para el porqué.
 
-### Un flow principal
+### Un flow principal, que orquesta subflows
 
-`weekly_location_performance_flow` (**propuesto**, en `data/pipelines/weekly-location-performance/flow.py` — nombre de carpeta en kebab-case siguiendo los ejemplos de `data/pipelines/README.md`: `sales-etl`, `customer-segmentation`).
+`weekly_location_performance_flow` (en `data/pipelines/weekly-location-performance/flow.py` — nombre de carpeta en kebab-case siguiendo los ejemplos de `data/pipelines/README.md`: `sales-etl`, `customer-segmentation`).
 
-- **Input**: `week_start: date | None` (si es `None`, se resuelve a la última semana ISO cerrada — mismo patrón de resolución de periodo que `GET /telemetry/report`, sección 1.3); `triggered_by: str` (`'schedule'` o `'manual:<user_id>'`).
-- **Output**: el `id` (UUID) de la fila de `reporting.pipeline_runs` creada, y su `status` final.
-- **Responsabilidad**: resolver `week_start`, crear la fila `running` en `reporting.pipeline_runs`, invocar las 3 tareas en secuencia, capturar cualquier excepción para marcar `failed` con `failed_stage`, y marcar `succeeded` con los conteos finales tras el commit de carga.
+- **Input**: `week_start: date | None` (si es `None`, se resuelve a la última semana ISO cerrada — mismo patrón de resolución de periodo que `GET /telemetry/report`, sección 1.3); `triggered_by: str` (`'schedule'` o `'manual:<user_id>'`); `run_id: str | UUID | None` (opcional — ver sección 11).
+- **Output**: un `dict` con `run_id`, `status`, `week_start` y los conteos finales (`records_read`, `records_rejected`, `records_transformed`, `records_loaded`, `optional_step_error`).
+- **Responsabilidad**: resolver `week_start`, crear (o reutilizar) la fila `running` en `reporting.pipeline_runs`, invocar los 4 subflows en secuencia — pasando el resultado de cada uno como parámetro explícito al siguiente, nunca por variable global —, capturar el estado de cada subflow mandatorio vía `return_state=True` para marcar `failed` con `failed_stage` y re-lanzar antes de que termine el flow run, y marcar `succeeded` con los conteos finales tras el commit de carga.
 
-### Tres tareas: extracción, transformación y carga
+### Subflows y sus tareas: extracción, transformación y carga
 
-1. **`extract_weekly_telemetry_events`** (**propuesta**, `data/pipelines/weekly-location-performance/extract.py`)
+Cada etapa de la sección 4 es ahora su propio **subflow** (`@flow`), con entradas/salidas explícitas, invocado desde `weekly_location_performance_flow` con `return_state=True`. Cada subflow conserva, internamente, los reintentos/caché/manejo de errores de sus propias tareas — el refactor cambia *quién orquesta* cada etapa, nunca su política de resiliencia.
+
+1. **`extract_weekly_telemetry_events_flow`** (`data/pipelines/weekly-location-performance/extract.py`)
    - *Input*: `week_start: date`.
-   - *Output*: `DataFrame` crudo (mismas 8 columnas de `telemetry_events`) + `records_read: int`.
-   - *Responsabilidad*: lectura de solo lectura contra `telemetry_events`, filtrada a los 4 `event_type` relevantes y al rango `[week_start, week_start+7d)`, usando el mismo patrón de cursor del lado del servidor + chunks ya probado en `fetch_telemetry_events_dataframe` (sección 3).
-   - *Depende de*: nada (primera tarea del flow).
+   - *Output*: `ExtractResult` (`raw_events: DataFrame` crudo, mismas 8 columnas de `telemetry_events` + `records_read: int`).
+   - *Responsabilidad*: envuelve la única tarea `extract_weekly_telemetry_events` (lectura de solo lectura contra `telemetry_events`, filtrada a los 4 `event_type` relevantes y al rango `[week_start, week_start+7d)`, mismo patrón de cursor del lado del servidor + chunks de `fetch_telemetry_events_dataframe`, sección 3). Hoy solo lee una tabla (no hay JOIN de dominio obligatorio en v1, sección 3) — un subflow delgado, listo para ganar más tareas internas si una fuente adicional se vuelve necesaria, sin cambiar su firma.
+   - *Depende de*: nada (primer subflow del flow principal).
 
-2. **`transform_weekly_location_performance`** (**propuesta**, `data/pipelines/weekly-location-performance/transform.py`)
-   - *Input*: el `DataFrame` crudo de la tarea anterior + `week_start`.
-   - *Output*: `DataFrame` agregado (una fila por local) + `records_rejected: int` + `records_transformed: int`.
-   - *Responsabilidad*: las transformaciones puras de la sección 4 (filtrado, `groupby`, `waste_ratio`, mapeo de moneda) — sin ningún acceso a base de datos, análoga en espíritu a `app/services/telemetry_analysis.py` pero en su propio módulo, nunca reutilizando ese archivo (fuera de alcance, sección 1.4).
-   - *Depende de*: la salida de `extract_weekly_telemetry_events`.
+2. **`transform_weekly_location_performance_flow`** (`data/pipelines/weekly-location-performance/transform.py`)
+   - *Input*: `raw_events: DataFrame` (salida del subflow anterior) + `week_start: date`.
+   - *Output*: `TransformResult` (`aggregated: DataFrame` — una fila por local — + `records_rejected: int` + `records_transformed: int`).
+   - *Responsabilidad*: orquesta **5 tareas**, una por KPI de la sección 2, cada una con entrada/salida explícita y testeable en aislamiento (`tests/pipelines/test_pipeline.py`):
+     - `calculate_purchase_cost(raw_events, week_start) -> (Series, rejected: int)` — *Costo de compra por local*.
+     - `calculate_waste_cost(raw_events, week_start) -> (Series, rejected: int)` — *Costo de merma por local*.
+     - `calculate_waste_ratio(total_purchase_cost: Series, total_waste_cost: Series) -> Series` — *Ratio de merma*, derivada de las dos anteriores.
+     - `calculate_stockout_frequency(raw_events) -> Series` — *Frecuencia de quiebre de stock*.
+     - `calculate_price_alert_frequency(raw_events) -> Series` — *Frecuencia de alertas de precio*.
+     El subflow combina las 5 salidas (`pd.concat` + `fillna(0)`), aplica el mapeo de moneda y arma el `DataFrame` final — sin ningún acceso a base de datos, análoga en espíritu a `app/services/telemetry_analysis.py` pero en su propio módulo, nunca reutilizando ese archivo (fuera de alcance, sección 1.4).
+   - *Depende de*: la salida de `extract_weekly_telemetry_events_flow`.
 
-3. **`load_weekly_location_performance`** (**propuesta**, `data/pipelines/weekly-location-performance/load.py`)
-   - *Input*: el `DataFrame` agregado de la tarea anterior + `week_start`.
-   - *Output*: `records_loaded: int`.
-   - *Responsabilidad*: abrir una única transacción, ejecutar el upsert de todas las filas (sección 8), confirmar (`COMMIT`).
-   - *Depende de*: la salida de `transform_weekly_location_performance`.
+3. **`load_weekly_location_performance_flow`** (`data/pipelines/weekly-location-performance/load.py`)
+   - *Input*: `aggregated: DataFrame` (salida del subflow anterior).
+   - *Output*: `LoadResult` (`records_loaded: int`).
+   - *Responsabilidad*: envuelve la única tarea `load_weekly_location_performance` — abre una única transacción, ejecuta el upsert de todas las filas (sección 8), confirma (`COMMIT`).
+   - *Depende de*: la salida de `transform_weekly_location_performance_flow`.
 
-La escritura del log (`reporting.pipeline_runs`) **no es una tarea de Prefect** — vive como código plano dentro del cuerpo del flow (antes/después de las 3 tareas), porque no necesita la semántica de reintentos de Prefect; es la propia bitácora de lo que les pasó a las tareas.
+4. **`write_weekly_evaluation_snapshot_flow`** (`data/pipelines/weekly-location-performance/notify.py`) — **opcional, no crítico**
+   - *Input*: `aggregated: DataFrame` (del subflow de transformación) + `week_start: date`.
+   - *Output*: `str` (ruta del archivo JSON escrito).
+   - *Responsabilidad*: envuelve la tarea `write_weekly_evaluation_snapshot`. Invocado desde el flow principal con `return_state=True` **después** de que `load_weekly_location_performance_flow` tenga éxito; su estado se inspecciona (`is_failed()`) y, si falló, el error se registra en `reporting.pipeline_runs.optional_step_error` **sin** re-lanzar — a diferencia de los 3 subflows anteriores, una falla aquí nunca hace fallar el flow principal ni se refleja en `failed_stage`/`error_summary`.
+   - *Depende de*: la salida de `transform_weekly_location_performance_flow` (no de la carga — solo corre *después* de que esta tenga éxito, pero no consume su resultado).
+
+La escritura del log (`reporting.pipeline_runs`) **no es una tarea ni un subflow de Prefect** — vive como código plano dentro del cuerpo del flow principal (antes/después de los subflows), porque no necesita la semántica de reintentos de Prefect; es la propia bitácora de lo que les pasó a los subflows.
 
 ### Mapeo a estados de Prefect
 
@@ -465,11 +481,14 @@ La escritura del log (`reporting.pipeline_runs`) **no es una tarea de Prefect** 
 
 ### Reintentos, timeouts y propagación de fallos por tarea
 
-| Tarea | Reintentos (**propuesto**) | Qué SÍ reintenta | Qué NO reintenta (falla inmediato) |
+| Tarea | Reintentos (**implementado**) | Qué SÍ reintenta | Qué NO reintenta (falla inmediato) |
 | --- | --- | --- | --- |
 | `extract_weekly_telemetry_events` | `retries=3`, `retry_delay_seconds=30` | Caída de conexión a Supabase, timeout transitorio de red | `week_start` inválido o fuera de rango permitido (error de configuración — reintentarlo produce el mismo error 3 veces) |
-| `transform_weekly_location_performance` | `retries=1` (margen mínimo por si un recurso transitorio falla, p. ej. memoria) | Fallo transitorio de recursos del worker | `tags` malformado/incompleto por evento — **no** es un fallo de tarea, se maneja inline como `records_rejected` (sección 3), nunca lanza una excepción |
+| `calculate_purchase_cost`, `calculate_waste_cost`, `calculate_waste_ratio`, `calculate_stockout_frequency`, `calculate_price_alert_frequency` (las 5 tareas del subflow de transformación) | `retries=1` cada una (margen mínimo por si un recurso transitorio falla, p. ej. memoria) | Fallo transitorio de recursos del worker | `tags` malformado/incompleto por evento — **no** es un fallo de tarea, se maneja inline como `records_rejected` (sección 3), nunca lanza una excepción. Un valor de tipo incorrecto (p. ej. `unit_cost` no numérico) **sí** lanza una excepción — ver `tests/pipelines/test_pipeline.py::test_non_numeric_unit_cost_raises_instead_of_silently_computing_garbage` |
 | `load_weekly_location_performance` | `retries=2` | Conflicto de escritura/deadlock transitorio en Postgres, caída de conexión | Credenciales de conexión ausentes/inválidas (error de configuración) |
+| `write_weekly_evaluation_snapshot` | sin reintentos (paso opcional, mejor esfuerzo) | — | Cualquier error de filesystem — se registra en `optional_step_error`, nunca hace fallar el flow |
+
+`calculate_purchase_cost` y `calculate_waste_cost` además cachean su resultado (`cache_key_fn=transform_cache_key`, `cache_expiration=6h`, sección "costly transformation" más abajo) — la clave incluye el nombre de la tarea para que ambas, al recibir el mismo `raw_events` sin filtrar, nunca compartan ni sirvan por error el resultado cacheado de la otra.
 
 - **Timeouts**: se propone un `timeout_seconds` por tarea acotado al volumen conocido y pequeño del dominio (14 locales, 1 semana) — un valor exacto (p. ej. 2–5 minutos por tarea) queda como parámetro a confirmar (sección 12), no se fija aquí sin validación contra el ambiente real.
 - **Propagación**: el fallo final (post-reintentos) de cualquier tarea se captura en el cuerpo del flow, que escribe `status='failed'` + `failed_stage=<nombre de la tarea>` en el log, y luego re-lanza (o retorna un estado de fallo) para que el propio flow run de Prefect también quede `Failed` — manteniendo el estado de Prefect y el log de ejecución consistentes entre sí.
@@ -482,7 +501,9 @@ La escritura del log (`reporting.pipeline_runs`) **no es una tarea de Prefect** 
 
 ### Segundo flow (opcional) y subflows
 
-Un flow de *backfill* (p. ej. `backfill_weekly_location_performance_flow(start_week, end_week)` que invoca las mismas 3 tareas semana por semana en el rango) es **opcional** y no se detalla aquí más allá de mencionarlo como extensión natural una vez el flow principal esté validado. Las 3 tareas ya están separadas limpiamente por etapa (extracción/transformación/carga, igual que el diagrama de la sección 4), de forma que cada una podría convertirse en su propio *subflow* más adelante sin rediseñar nada — no se requieren subflows en esta fase. **No implementado** — sigue siendo una extensión futura, no parte de este hito.
+**Implementado.** Las 4 etapas (extracción, transformación, carga, y el paso opcional de notificación) son subflows `@flow` independientes — ver "Subflows y sus tareas" arriba para el detalle módulo por módulo. El flow principal nunca llama a una tarea directamente: siempre pasa por el subflow de su etapa, que es quien internamente invoca la(s) tarea(s) correspondiente(s). Esto deja la puerta abierta, sin rediseñar nada, a que una etapa gane más tareas internas (p. ej. una fuente de dominio adicional en extracción) sin tocar la firma del subflow ni el flow principal.
+
+Un flow de *backfill* (p. ej. `backfill_weekly_location_performance_flow(start_week, end_week)` que invoque los mismos 4 subflows semana por semana en el rango) sigue siendo una extensión natural, **no implementada** — no es parte de este hito.
 
 ### Periodicidad de negocio vs. programación automática real (Fase 4)
 
@@ -633,9 +654,11 @@ Ver la tabla completa en la sección 9 — se referencia aquí como entregable f
 
 ## Resumen final (Fases 1–5)
 
+> **Actualización — este resumen describe el estado de diseño anterior a la implementación** ("Prefect no está instalado en el repo hoy", "tres tareas"). Ya no es el caso: Prefect está instalado y el pipeline implementado, y desde el refactor en subflows el flow principal invoca 4 subflows (`extract_weekly_telemetry_events_flow`, `transform_weekly_location_performance_flow`, `load_weekly_location_performance_flow`, `write_weekly_evaluation_snapshot_flow`) en vez de tareas sueltas — ver la sección 10 ("Mapeo a Prefect") para el estado real y actual. El resto de este resumen se deja sin editar como registro histórico del diseño original.
+
 - **Documento actualizado**: `docs/PIPELINE_DESIGN.md` — las Fases 1–2 (estado actual y diseño base) no cambiaron; se añadieron las secciones 8–12 (Fases 3–5) de forma consistente con ellas.
 - **Estrategia de idempotencia elegida**: upsert transaccional por lote (todas las filas de una semana en una sola transacción), apoyado en el `UNIQUE (location_id, week_start)` ya existente en el DDL del briefing — no se usa *staging* + reemplazo atómico, por ser innecesario al volumen de datos de este reporte. El checkpoint es, por definición, la última fila `succeeded` del log de ejecución — nunca una tabla de checkpoint separada.
-- **Mapeo a Prefect**: un flow (`weekly_location_performance_flow`) y tres tareas (`extract_weekly_telemetry_events`, `transform_weekly_location_performance`, `load_weekly_location_performance`), con reintentos solo para fallos transitorios (nunca para datos inválidos o errores de configuración) y credenciales resueltas vía un *block* propuesto, nunca en parámetros/logs. **Prefect no está instalado en el repo hoy** — todo esto es una propuesta a validar e instalar, con la versión exacta pendiente de fijar.
+- **Mapeo a Prefect**: un flow (`weekly_location_performance_flow`) y tres tareas (`extract_weekly_telemetry_events`, `transform_weekly_location_performance`, `load_weekly_location_performance`), con reintentos solo para fallos transitorios (nunca para datos inválidos o errores de configuración) y credenciales resueltas vía un *block* propuesto, nunca en parámetros/logs. **Prefect no está instalado en el repo hoy** — todo esto es una propuesta a validar e instalar, con la versión exacta pendiente de fijar. *(Ver nota de actualización arriba: superado por la implementación real y el refactor en subflows.)*
 - **Diseño de endpoints**: 3 endpoints bajo `services/reporting/` (estado, disparo manual, consulta de KPIs), todos **propuestos**, que delegan el ETL por completo a `data/pipelines/` y nunca ejecutan transformación dentro de la petición HTTP.
 - **Decisiones pendientes**: los dos insumos de costo faltantes (sección 2, sin cambios desde las Fases 1–2) siguen siendo el bloqueador principal para calcular 3 de los 5 KPIs con datos reales; además, la versión exacta de Prefect/integración de conexión, los umbrales de timeout/corrida colgada, y el control de acceso exacto de los endpoints quedan como confirmaciones pendientes (sección 12).
 - Todo lo marcado **PROPUESTO** en las secciones 8–12 (tabla `pipeline_runs` extendida, flow/tareas de Prefect, los 3 endpoints, nombres de módulos en `data/pipelines/`/`services/reporting/`) es diseño, no implementación existente — no se creó ningún archivo de código, migración ni despliegue como parte de esta tarea.

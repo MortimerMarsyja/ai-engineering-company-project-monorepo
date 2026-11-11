@@ -170,7 +170,7 @@ def test_critical_stage_failure_is_logged_and_reflected_in_the_result(monkeypatc
     monkeypatch.setattr(extract.extract_weekly_telemetry_events, "fn", _boom)
     monkeypatch.setattr(extract.extract_weekly_telemetry_events, "retries", 0)
 
-    with pytest.raises(RuntimeError, match="extract_weekly_telemetry_events failed"):
+    with pytest.raises(RuntimeError, match="extract_weekly_telemetry_events_flow failed"):
         flow_module.weekly_location_performance_flow(week_start=TEST_WEEK_START, triggered_by="test")
 
     latest = run_log.get_latest_attempt(PIPELINE_NAME)

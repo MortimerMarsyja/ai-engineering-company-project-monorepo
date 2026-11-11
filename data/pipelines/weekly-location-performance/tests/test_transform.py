@@ -13,9 +13,14 @@ from datetime import date
 
 import pandas as pd
 import conftest  # noqa: F401  (sys.path setup)
-from transform import transform_weekly_location_performance
+from transform import transform_weekly_location_performance_flow
 
-_transform = transform_weekly_location_performance.fn
+# `transform_weekly_location_performance_flow` is itself the subflow under
+# test here (integration of all 5 KPI tasks); it is pure Pandas with no
+# I/O, so calling it directly (not `.fn`) still runs instantly and without
+# any external dependency. Isolated per-task unit tests (via `.fn`) live in
+# tests/pipelines/test_pipeline.py at the repo root.
+_transform = transform_weekly_location_performance_flow
 
 
 def _event(event_type: str, location_id: str, country: str, **tags) -> dict:

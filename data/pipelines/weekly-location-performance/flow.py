@@ -2,16 +2,23 @@
 
 Orchestrates extract -> transform -> load for one ISO week and writes one
 row to `reporting.pipeline_runs` tracking the whole attempt (sections 9-10).
-The three mandatory stages run in sequence, each invoked with
-`return_state=True` so a failure can be logged (stage + error) *before*
-re-raising — keeping the execution log and Prefect's own flow-run state
-consistent with each other, never hiding a mandatory failure.
+Each of the three mandatory stages is its own subflow (`@flow`-decorated):
+`extract.extract_weekly_telemetry_events_flow`,
+`transform.transform_weekly_location_performance_flow`,
+`load.load_weekly_location_performance_flow`. This main flow invokes them
+in sequence, each via `return_state=True` so a failure (anywhere inside
+that subflow, including inside its own tasks after they exhaust their
+retries) can be logged (stage + error) *before* re-raising — keeping the
+execution log and Prefect's own flow-run state consistent with each other,
+never hiding a mandatory failure. Every subflow has explicit inputs and
+outputs — results are threaded through parameters/return values only,
+never a global.
 
-A fourth, explicitly optional and non-critical step (a JSON evaluation
-snapshot — see notify.py) runs after load succeeds, also via
-`return_state=True`, but its failure is only ever recorded
-(`optional_step_error`) — never allowed to fail the flow or overwrite the
-main pipeline's `succeeded` result.
+A fourth, explicitly optional and non-critical subflow
+(`notify.write_weekly_evaluation_snapshot_flow` — a JSON evaluation
+snapshot) runs after load succeeds, also via `return_state=True`, but its
+failure is only ever recorded (`optional_step_error`) — never allowed to
+fail the flow or overwrite the main pipeline's `succeeded` result.
 """
 
 from __future__ import annotations
@@ -89,19 +96,19 @@ def weekly_location_performance_flow(
         # 9) regardless of which path created the row.
         run_log.set_prefect_flow_run_id(run_id, flow_run.id)
 
-    extract_state = extract.extract_weekly_telemetry_events(resolved_week_start, return_state=True)
+    extract_state = extract.extract_weekly_telemetry_events_flow(resolved_week_start, return_state=True)
     if extract_state.is_failed():
         exc = extract_state.result(raise_on_failure=False)
         run_log.finish_pipeline_run(
             run_id,
             status="failed",
             failed_stage="extract",
-            error_summary=f"extract_weekly_telemetry_events failed after retries: {exc}",
+            error_summary=f"extract_weekly_telemetry_events_flow failed after retries: {exc}",
         )
-        raise RuntimeError(f"extract_weekly_telemetry_events failed: {exc}") from exc
+        raise RuntimeError(f"extract_weekly_telemetry_events_flow failed: {exc}") from exc
     extract_result = extract_state.result()
 
-    transform_state = transform.transform_weekly_location_performance(
+    transform_state = transform.transform_weekly_location_performance_flow(
         extract_result.raw_events, resolved_week_start, return_state=True
     )
     if transform_state.is_failed():
@@ -110,34 +117,34 @@ def weekly_location_performance_flow(
             run_id,
             status="failed",
             failed_stage="transform",
-            error_summary=f"transform_weekly_location_performance failed after retries: {exc}",
+            error_summary=f"transform_weekly_location_performance_flow failed after retries: {exc}",
             records_read=extract_result.records_read,
         )
-        raise RuntimeError(f"transform_weekly_location_performance failed: {exc}") from exc
+        raise RuntimeError(f"transform_weekly_location_performance_flow failed: {exc}") from exc
     transform_result = transform_state.result()
 
-    load_state = load.load_weekly_location_performance(transform_result.aggregated, return_state=True)
+    load_state = load.load_weekly_location_performance_flow(transform_result.aggregated, return_state=True)
     if load_state.is_failed():
         exc = load_state.result(raise_on_failure=False)
         run_log.finish_pipeline_run(
             run_id,
             status="failed",
             failed_stage="load",
-            error_summary=f"load_weekly_location_performance failed after retries: {exc}",
+            error_summary=f"load_weekly_location_performance_flow failed after retries: {exc}",
             records_read=extract_result.records_read,
             records_rejected=transform_result.records_rejected,
             records_transformed=transform_result.records_transformed,
         )
-        raise RuntimeError(f"load_weekly_location_performance failed: {exc}") from exc
+        raise RuntimeError(f"load_weekly_location_performance_flow failed: {exc}") from exc
     load_result = load_state.result()
 
-    # ── Optional, non-critical step ──────────────────────────────────────
+    # ── Optional, non-critical subflow ───────────────────────────────────
     # Explicitly outside extract -> transform -> load. return_state=True
     # here is what makes its failure inspectable without ever propagating:
     # there is no `if snapshot_state.is_failed(): raise ...` branch, unlike
     # every mandatory stage above.
     optional_step_error: str | None = None
-    snapshot_state = notify.write_weekly_evaluation_snapshot(
+    snapshot_state = notify.write_weekly_evaluation_snapshot_flow(
         transform_result.aggregated, resolved_week_start, return_state=True
     )
     if snapshot_state.is_failed():

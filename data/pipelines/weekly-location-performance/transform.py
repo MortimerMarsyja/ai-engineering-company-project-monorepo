@@ -17,7 +17,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from prefect import task
+from prefect import flow, task
 
 EVENT_TYPE_COLUMN = "event_type"
 TAGS_COLUMN = "tags"
@@ -106,11 +106,21 @@ def transform_cache_key(context: Any, parameters: dict[str, Any]) -> str:
 
     Validity window: `TRANSFORM_CACHE_EXPIRATION` (6 hours) — see that
     constant's own docstring for why that specific duration was chosen.
+
+    Shared by both costed-sum tasks below (`calculate_purchase_cost`,
+    `calculate_waste_cost`), which are handed the exact same unfiltered
+    `raw_events` — the task's own name is folded into the key too, so the
+    two tasks never collide into (and incorrectly serve) each other's
+    cached result despite hashing the same input DataFrame.
     """
     week_start: date = parameters["week_start"]
     raw_events: pd.DataFrame = parameters["raw_events"]
     fingerprint = _dataframe_fingerprint(raw_events)
-    return f"weekly_location_performance:transform:v{TRANSFORM_VERSION}:{week_start.isoformat()}:{fingerprint}"
+    task_name = context.task.name if context is not None and context.task is not None else "unknown"
+    return (
+        f"weekly_location_performance:transform:{task_name}:v{TRANSFORM_VERSION}:"
+        f"{week_start.isoformat()}:{fingerprint}"
+    )
 
 
 def _empty_location_series(name: str, dtype: str) -> pd.Series:
@@ -177,38 +187,108 @@ def _event_counts(df: pd.DataFrame, event_type: str, output_name: str) -> pd.Ser
     return expanded.groupby(["location_id", "country"]).size().rename(output_name)
 
 
-# Retries: this task is pure Pandas with no I/O. Per docs/PIPELINE_DESIGN.md
-# section 10, the only realistic failure here is a transient worker
-# resource issue (e.g. memory pressure under an unusually large week), not
-# a bug retrying would paper over — hence a single retry, a safety margin
-# rather than a recovery strategy. A malformed/incomplete `tags` dict on an
-# individual row is never a task failure: it is handled inline above
-# (counted, excluded from that KPI's sum) exactly like the existing policy
-# in app.services.telemetry_analysis — it never raises.
+# Retries: every transformation task below is pure Pandas with no I/O. Per
+# docs/PIPELINE_DESIGN.md section 10, the only realistic failure here is a
+# transient worker resource issue (e.g. memory pressure under an unusually
+# large week), not a bug retrying would paper over — hence a single retry,
+# a safety margin rather than a recovery strategy. A malformed/incomplete
+# `tags` dict on an individual row is never a task failure: it is handled
+# inline (counted, excluded from that KPI's sum) exactly like the existing
+# policy in app.services.telemetry_analysis — it never raises.
+#
+# Each KPI from docs/company-briefing.md section 2 gets its own task, with
+# explicit inputs/outputs (no shared/global state), so the transformation
+# subflow below can run, cache and retry each one independently — and so
+# each is independently unit-testable via `.fn` (tests/pipelines/test_pipeline.py).
+
+
 @task(
-    name="transform_weekly_location_performance",
+    name="calculate_purchase_cost",
     retries=1,
     retry_delay_seconds=10,
     cache_key_fn=transform_cache_key,
     cache_expiration=TRANSFORM_CACHE_EXPIRATION,
 )
-def transform_weekly_location_performance(raw_events: pd.DataFrame, week_start: date) -> TransformResult:
-    """Filter -> per-KPI aggregate -> waste_ratio -> currency — the exact
-    transformations of docs/PIPELINE_DESIGN.md section 4, grouped by
-    (location_id, country) at the week's grain.
+def calculate_purchase_cost(raw_events: pd.DataFrame, week_start: date) -> tuple[pd.Series, int]:
+    """total_purchase_cost — sum(quantity * unit_cost) over
+    `inbound_order_created` rows, grouped by (location_id, country).
+    `week_start` isn't used by the computation itself; it's part of the
+    cache key so a cached result is never shared across different weeks.
+    """
+    return _costed_sum(raw_events, INBOUND_EVENT_TYPE, "total_purchase_cost")
+
+
+@task(
+    name="calculate_waste_cost",
+    retries=1,
+    retry_delay_seconds=10,
+    cache_key_fn=transform_cache_key,
+    cache_expiration=TRANSFORM_CACHE_EXPIRATION,
+)
+def calculate_waste_cost(raw_events: pd.DataFrame, week_start: date) -> tuple[pd.Series, int]:
+    """total_waste_cost — sum(quantity * unit_cost) over
+    `stock_waste_registered` rows, grouped by (location_id, country).
+    """
+    return _costed_sum(raw_events, WASTE_EVENT_TYPE, "total_waste_cost")
+
+
+@task(name="calculate_waste_ratio", retries=1, retry_delay_seconds=10)
+def calculate_waste_ratio(total_purchase_cost: pd.Series, total_waste_cost: pd.Series) -> pd.Series:
+    """waste_ratio = total_waste_cost / total_purchase_cost; 0 when there
+    were no purchases that week — a valid zero denominator (the location
+    genuinely didn't buy), not an "unavailable" measurement
+    (docs/company-briefing.md section 4).
+    """
+    combined = pd.concat([total_purchase_cost, total_waste_cost], axis=1).fillna(0)
+    if combined.empty:
+        return _empty_location_series("waste_ratio", "float64")
+    purchase = combined.iloc[:, 0]
+    waste = combined.iloc[:, 1]
+    ratio = np.where(purchase > 0, waste / purchase, 0.0)
+    return pd.Series(ratio, index=combined.index, name="waste_ratio")
+
+
+@task(name="calculate_stockout_frequency", retries=1, retry_delay_seconds=10)
+def calculate_stockout_frequency(raw_events: pd.DataFrame) -> pd.Series:
+    """stockout_events_count — count of `stock_threshold_triggered` rows,
+    grouped by (location_id, country).
+    """
+    return _event_counts(raw_events, STOCKOUT_EVENT_TYPE, "stockout_events_count")
+
+
+@task(name="calculate_price_alert_frequency", retries=1, retry_delay_seconds=10)
+def calculate_price_alert_frequency(raw_events: pd.DataFrame) -> pd.Series:
+    """price_alert_events_count — count of
+    `ingredient_price_variance_detected` rows, grouped by
+    (location_id, country).
+    """
+    return _event_counts(raw_events, PRICE_ALERT_EVENT_TYPE, "price_alert_events_count")
+
+
+@flow(name="transform_weekly_location_performance_flow")
+def transform_weekly_location_performance_flow(raw_events: pd.DataFrame, week_start: date) -> TransformResult:
+    """Transformación subflow — docs/PIPELINE_DESIGN.md section 4/10.
+
+    Runs the 5 KPI tasks above over the same `raw_events`, then assembles
+    one row per (location_id, country) at this week's grain. Explicit
+    input (`raw_events`, `week_start`) and output (`TransformResult`) —
+    nothing is read from or written to a global.
     """
     rejected = 0
 
-    purchase, purchase_rejected = _costed_sum(raw_events, INBOUND_EVENT_TYPE, "total_purchase_cost")
+    purchase, purchase_rejected = calculate_purchase_cost(raw_events, week_start)
     rejected += purchase_rejected
 
-    waste, waste_rejected = _costed_sum(raw_events, WASTE_EVENT_TYPE, "total_waste_cost")
+    waste, waste_rejected = calculate_waste_cost(raw_events, week_start)
     rejected += waste_rejected
 
-    stockout_counts = _event_counts(raw_events, STOCKOUT_EVENT_TYPE, "stockout_events_count")
-    price_alert_counts = _event_counts(raw_events, PRICE_ALERT_EVENT_TYPE, "price_alert_events_count")
+    waste_ratio = calculate_waste_ratio(purchase, waste)
+    stockout_counts = calculate_stockout_frequency(raw_events)
+    price_alert_counts = calculate_price_alert_frequency(raw_events)
 
-    combined = pd.concat([purchase, waste, stockout_counts, price_alert_counts], axis=1).fillna(0)
+    combined = pd.concat(
+        [purchase, waste, waste_ratio, stockout_counts, price_alert_counts], axis=1
+    ).fillna(0)
 
     if combined.empty:
         return TransformResult(
@@ -223,9 +303,11 @@ def transform_weekly_location_performance(raw_events: pd.DataFrame, week_start: 
     combined["stockout_events_count"] = combined["stockout_events_count"].astype(int)
     combined["price_alert_events_count"] = combined["price_alert_events_count"].astype(int)
 
-    # waste_ratio = total_waste_cost / total_purchase_cost; 0 when there
-    # were no purchases that week — a valid zero denominator (the location
-    # genuinely didn't buy), not an "unavailable" measurement.
+    # Re-derive waste_ratio after the final fillna(0): a location that only
+    # appears via stockout/price-alert counts (no purchase/waste rows at
+    # all) must still get the correct 0-denominator rule applied, not
+    # whatever calculate_waste_ratio computed before those rows existed in
+    # the combined index.
     combined["waste_ratio"] = np.where(
         combined["total_purchase_cost"] > 0,
         combined["total_waste_cost"] / combined["total_purchase_cost"],
