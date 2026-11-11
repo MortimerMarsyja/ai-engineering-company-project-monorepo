@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BarChart3,
   Boxes,
   ClipboardList,
   Flame,
@@ -39,15 +40,16 @@ function getInitials(name: string, email: string) {
   return (initials || email[0] || "?").toUpperCase();
 }
 
-const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: Gauge },
-  { name: "Locations", href: "/locations", icon: MapPin },
-  { name: "Orders", href: "/orders", icon: ClipboardList },
-  { name: "Incidents", href: "/incidents", icon: TriangleAlert },
-  { name: "Brasa Points", href: "/loyalty", icon: Star },
-  { name: "Hiring", href: "/hiring", icon: Users },
-  { name: "Suppliers", href: "/suppliers", icon: Handshake },
-  { name: "Inventory", href: "/inventory", icon: Boxes },
+const navigation: { name: string; href: string; icon: typeof Gauge; activeMatch: string[] }[] = [
+  { name: "Dashboard", href: "/dashboard", icon: Gauge, activeMatch: ["/dashboard"] },
+  { name: "Locations", href: "/locations", icon: MapPin, activeMatch: ["/locations"] },
+  { name: "Orders", href: "/orders", icon: ClipboardList, activeMatch: ["/orders"] },
+  { name: "Incidents", href: "/incidents", icon: TriangleAlert, activeMatch: ["/incidents"] },
+  { name: "Reports", href: "/reports", icon: BarChart3, activeMatch: ["/reports", "/reporting", "/telemetry-report"] },
+  { name: "Brasa Points", href: "/loyalty", icon: Star, activeMatch: ["/loyalty"] },
+  { name: "Hiring", href: "/hiring", icon: Users, activeMatch: ["/hiring"] },
+  { name: "Suppliers", href: "/suppliers", icon: Handshake, activeMatch: ["/suppliers"] },
+  { name: "Inventory", href: "/inventory", icon: Boxes, activeMatch: ["/inventory"] },
 ];
 
 export default function Sidebar() {
@@ -110,7 +112,7 @@ export default function Sidebar() {
       <nav className="flex-1 py-3 sm:py-4">
         <ul className="flex flex-col gap-1.5 px-2.5">
           {navigation.map((item) => {
-            const isActive = pathname.startsWith(item.href);
+            const isActive = item.activeMatch.some((candidate) => pathname.startsWith(candidate));
             const Icon = item.icon;
 
             return (
