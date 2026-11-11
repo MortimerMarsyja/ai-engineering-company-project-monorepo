@@ -10,6 +10,8 @@ import ApiOperationsTable from "@/components/ApiOperationsTable";
 import FrontendErrorCountsTable from "@/components/FrontendErrorCountsTable";
 import ErrorState from "@/components/ErrorState";
 import EmptyState from "@/components/EmptyState";
+import RestrictedState from "@/components/RestrictedState";
+import { useStaffGate } from "@/hooks/useStaffGate";
 import { isRetryableError } from "@/lib/api-error";
 import { fetchTelemetryReport } from "@/lib/telemetry-report-api";
 import { formatReportPeriod, joinApiOperations, type TelemetryReportResponse } from "@/lib/telemetry-report";
@@ -39,6 +41,7 @@ function TelemetryReportContent({
   searchParams: Pick<URLSearchParams, "get" | "toString">;
 }) {
   const sessionLoading = usePageLoading();
+  const staffStatus = useStaffGate();
   const router = useRouter();
 
   const startDate = searchParams.get("start_date") ?? "";
@@ -72,9 +75,9 @@ function TelemetryReportContent({
   }, [startDate, endDate]);
 
   useEffect(() => {
-    if (sessionLoading) return;
+    if (sessionLoading || staffStatus !== "staff") return;
     load();
-  }, [sessionLoading, load]);
+  }, [sessionLoading, staffStatus, load]);
 
   function messageOf(err: unknown, fallback: string): string {
     return err instanceof Error ? err.message : fallback;
@@ -91,46 +94,50 @@ function TelemetryReportContent({
         title="Telemetry Operations Report"
         description="Event volume, API latency, and error rates captured across the backoffice and website."
         actions={
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium text-zinc-700">From</span>
-              <input
-                type="date"
-                value={startDate ? toDateInputValue(startDate) : ""}
-                onChange={(e) => setParam("start_date", e.target.value)}
-                className="w-40 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                aria-label="Report start date (defaults to 7 days ago)"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium text-zinc-700">To</span>
-              <input
-                type="date"
-                value={endDate ? toDateInputValue(endDate) : ""}
-                onChange={(e) => setParam("end_date", e.target.value)}
-                className="w-40 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                aria-label="Report end date (defaults to today)"
-              />
-            </label>
-          </div>
+          staffStatus === "staff" ? (
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="flex flex-col gap-1.5 text-sm">
+                <span className="font-medium text-zinc-700">From</span>
+                <input
+                  type="date"
+                  value={startDate ? toDateInputValue(startDate) : ""}
+                  onChange={(e) => setParam("start_date", e.target.value)}
+                  className="w-40 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  aria-label="Report start date (defaults to 7 days ago)"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm">
+                <span className="font-medium text-zinc-700">To</span>
+                <input
+                  type="date"
+                  value={endDate ? toDateInputValue(endDate) : ""}
+                  onChange={(e) => setParam("end_date", e.target.value)}
+                  className="w-40 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  aria-label="Report end date (defaults to today)"
+                />
+              </label>
+            </div>
+          ) : undefined
         }
       />
 
-      {error ? (
+      {staffStatus === "checking" || sessionLoading ? null : staffStatus !== "staff" ? (
+        <RestrictedState />
+      ) : error ? (
         <ErrorState
           message={messageOf(error, "We couldn't load the telemetry report right now. Please try again.")}
           onRetry={isRetryableError(error) ? load : undefined}
         />
       ) : null}
 
-      {!error && !isLoading && !report ? (
+      {staffStatus === "staff" && !error && !isLoading && !report ? (
         <EmptyState
           title="No telemetry report available"
           message="The telemetry reporting service didn't return a report for this period."
         />
       ) : null}
 
-      {!error && report ? (
+      {staffStatus === "staff" && !error && report ? (
         <>
           <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600">
             Showing data for{" "}

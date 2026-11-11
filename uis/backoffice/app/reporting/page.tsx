@@ -9,6 +9,8 @@ import WeeklyPerformanceTable from "@/components/WeeklyPerformanceTable";
 import CostByLocationChart from "@/components/CostByLocationChart";
 import ErrorState from "@/components/ErrorState";
 import EmptyState from "@/components/EmptyState";
+import RestrictedState from "@/components/RestrictedState";
+import { useStaffGate } from "@/hooks/useStaffGate";
 import { isRetryableError } from "@/lib/api-error";
 import { fetchWeeklyLocationPerformance } from "@/lib/reporting-api";
 import {
@@ -41,6 +43,7 @@ function ReportingContent({
   searchParams: Pick<URLSearchParams, "get" | "toString">;
 }) {
   const sessionLoading = usePageLoading();
+  const staffStatus = useStaffGate();
   const router = useRouter();
 
   const weekStart = searchParams.get("week_start") ?? "";
@@ -70,9 +73,9 @@ function ReportingContent({
   }, [weekStart]);
 
   useEffect(() => {
-    if (sessionLoading) return;
+    if (sessionLoading || staffStatus !== "staff") return;
     load();
-  }, [sessionLoading, load]);
+  }, [sessionLoading, staffStatus, load]);
 
   function messageOf(err: unknown, fallback: string): string {
     return err instanceof Error ? err.message : fallback;
@@ -88,27 +91,31 @@ function ReportingContent({
         title="Weekly Cost & Waste Report"
         description="Purchase cost, waste cost, and stock risk by location — refreshed every Monday morning (UTC)."
         actions={
-          <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium text-zinc-700">Week starting (Monday)</span>
-            <input
-              type="date"
-              value={weekStart}
-              onChange={(e) => setWeekStart(e.target.value)}
-              className="w-44 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-              aria-label="Select the ISO week to view (defaults to the most recently completed report)"
-            />
-          </label>
+          staffStatus === "staff" ? (
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="font-medium text-zinc-700">Week starting (Monday)</span>
+              <input
+                type="date"
+                value={weekStart}
+                onChange={(e) => setWeekStart(e.target.value)}
+                className="w-44 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                aria-label="Select the ISO week to view (defaults to the most recently completed report)"
+              />
+            </label>
+          ) : undefined
         }
       />
 
-      {error ? (
+      {staffStatus === "checking" || sessionLoading ? null : staffStatus !== "staff" ? (
+        <RestrictedState />
+      ) : error ? (
         <ErrorState
           message={messageOf(error, "We couldn't load the weekly cost & waste report right now. Please try again.")}
           onRetry={isRetryableError(error) ? load : undefined}
         />
       ) : null}
 
-      {!error && !isLoading && !report ? (
+      {staffStatus === "staff" && !error && !isLoading && !report ? (
         <EmptyState
           title="No report available for this period"
           message={
@@ -119,7 +126,7 @@ function ReportingContent({
         />
       ) : null}
 
-      {!error && report ? (
+      {staffStatus === "staff" && !error && report ? (
         <>
           <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600">
             Showing data for the week of{" "}

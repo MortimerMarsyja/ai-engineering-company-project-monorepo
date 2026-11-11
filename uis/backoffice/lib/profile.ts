@@ -15,6 +15,14 @@ export interface Profile {
 
 export type UserRole = "admin" | "manager" | "user";
 
+/** Mirrors services/api/app/models/user.py's STAFF_ROLES — "admin" and
+ * "manager" can reach staff-gated endpoints (require_staff), e.g. the
+ * reporting/telemetry report pages and incident metrics. Kept here so
+ * every page that needs to know this agrees on the same definition. */
+export function isStaffRole(role: UserRole | null | undefined): boolean {
+  return role === "admin" || role === "manager";
+}
+
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: "Admin",
   manager: "Manager",
