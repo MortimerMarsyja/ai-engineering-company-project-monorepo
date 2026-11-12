@@ -23,6 +23,13 @@ export function isStaffRole(role: UserRole | null | undefined): boolean {
   return role === "admin" || role === "manager";
 }
 
+/** Mirrors services/api/app/core/deps.py's require_admin — stricter than
+ * isStaffRole: a manager must not reach admin-only features (e.g. the
+ * registration whitelist panel). */
+export function isAdminRole(role: UserRole | null | undefined): boolean {
+  return role === "admin";
+}
+
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: "Admin",
   manager: "Manager",

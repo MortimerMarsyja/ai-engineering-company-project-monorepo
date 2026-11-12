@@ -4,7 +4,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.security import decode_access_token
-from app.models.user import STAFF_ROLES
+from app.models.user import STAFF_ROLES, UserRole
 from app.services import users as users_service
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -61,6 +61,10 @@ def require_roles(*roles: str):
 
 # Staff = manager or admin (can update users via PUT /users/{id}).
 require_staff = require_roles(*STAFF_ROLES)
+
+# Admin only — stricter than require_staff. Used where a manager must not
+# be able to act, e.g. managing who is allowed to self-register.
+require_admin = require_roles(UserRole.ADMIN.value)
 
 
 def require_any_user(current_user: dict = Depends(get_current_user)) -> dict:

@@ -13,7 +13,7 @@ from app.models.password_reset_token_storage import password_reset_tokens_table
 from app.models.user import UserUpdate
 from app.services import users as users_service
 
-pytestmark = pytest.mark.usefixtures("sql_engine")
+pytestmark = pytest.mark.usefixtures("sql_engine", "open_registration")
 
 
 async def _register(client: AsyncClient, email: str, **overrides) -> dict:
