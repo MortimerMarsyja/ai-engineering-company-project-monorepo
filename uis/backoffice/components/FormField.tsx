@@ -5,9 +5,14 @@ export interface FormFieldProps
   label: string;
   required?: boolean;
   error?: string;
+  /** Non-blocking guidance shown below the field (e.g. an expected
+   * format example) — only rendered when there's no `error`, same visual
+   * slot. Never prevents submission; purely informational. */
+  hint?: string;
   className?: string;
   /** Rendered inside the field, right-aligned (e.g. a show/hide password
-   * toggle) — the input gets right padding automatically when present. */
+   * toggle, or a live valid/invalid indicator) — the input gets right
+   * padding automatically when present. */
   trailingAction?: ReactNode;
 }
 
@@ -15,6 +20,7 @@ export default function FormField({
   label,
   required,
   error,
+  hint,
   className = "",
   trailingAction,
   ...inputProps
@@ -41,7 +47,9 @@ export default function FormField({
           aria-describedby={
             error && inputProps.id
               ? `${inputProps.id}-error`
-              : inputProps["aria-describedby"]
+              : hint && inputProps.id
+                ? `${inputProps.id}-hint`
+                : inputProps["aria-describedby"]
           }
           className={fieldClass}
         />
@@ -56,6 +64,13 @@ export default function FormField({
           role="alert"
         >
           {error}
+        </span>
+      ) : hint ? (
+        <span
+          id={inputProps.id ? `${inputProps.id}-hint` : undefined}
+          className="text-xs text-[#221810]/55"
+        >
+          {hint}
         </span>
       ) : null}
     </label>
