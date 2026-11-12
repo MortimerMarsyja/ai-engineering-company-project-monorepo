@@ -14,7 +14,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 
-pytestmark = pytest.mark.usefixtures("sql_engine")
+pytestmark = pytest.mark.usefixtures("sql_engine", "open_registration")
 
 
 def _auth_headers(token: str) -> dict[str, str]:

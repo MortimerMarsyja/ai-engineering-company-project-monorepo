@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.core.deps import get_current_user, require_staff
 from app.models.schemas import ApiResponse
 from app.models.user import UserCreate, UserRegisteredResponse, UserResponse, UserUpdate
+from app.services import allowed_emails as allowed_emails_service
 from app.services import users as users_service
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -29,7 +30,19 @@ async def register_user(payload: UserCreate):
     "user". Optional profile fields (name, phone, address) create the
     linked Profile in the same operation. The response never echoes the
     email back (registration contract — see docs/serialization-audit.md).
+
+    Gated by the admin-managed whitelist (app/services/allowed_emails.py):
+    an email not on it is rejected with 403 before anything is created.
+    The check lives here, on the public endpoint, rather than inside
+    users_service.create_user(), so seed scripts and any future
+    admin-created-user flow that call the service directly are unaffected.
     """
+    if not allowed_emails_service.is_email_allowed(payload.email):
+        raise HTTPException(
+            status_code=403,
+            detail="This email is not authorized to register. Contact an administrator.",
+        )
+
     try:
         user = users_service.create_user(payload)
     except ValueError as exc:

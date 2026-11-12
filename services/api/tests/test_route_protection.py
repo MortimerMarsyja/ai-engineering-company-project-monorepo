@@ -23,7 +23,7 @@ from app.main import app
 from app.models.profile_storage import profiles_table
 from app.models.user_storage import users_table
 
-pytestmark = pytest.mark.usefixtures("sql_engine")
+pytestmark = pytest.mark.usefixtures("sql_engine", "open_registration")
 
 
 def _headers(token: str) -> dict[str, str]:

@@ -12,6 +12,7 @@ import {
   LogOut,
   Mail,
   MapPin,
+  ShieldCheck,
   Star,
   TriangleAlert,
   Users,
@@ -21,6 +22,7 @@ import Logo from "@/components/Logo";
 import { logout } from "@/lib/authenticated-fetch";
 import {
   getCurrentAccount,
+  isAdminRole,
   isStaffRole,
   PROFILE_UPDATED_EVENT,
   type Profile,
@@ -51,7 +53,14 @@ function getInitials(name: string, email: string) {
   return (initials || email[0] || "?").toUpperCase();
 }
 
-const navigation: { name: string; href: string; icon: typeof Gauge; activeMatch: string[]; staffOnly?: boolean }[] = [
+const navigation: {
+  name: string;
+  href: string;
+  icon: typeof Gauge;
+  activeMatch: string[];
+  staffOnly?: boolean;
+  adminOnly?: boolean;
+}[] = [
   { name: "Dashboard", href: "/dashboard", icon: Gauge, activeMatch: ["/dashboard"] },
   { name: "Locations", href: "/locations", icon: MapPin, activeMatch: ["/locations"] },
   { name: "Orders", href: "/orders", icon: ClipboardList, activeMatch: ["/orders"] },
@@ -70,6 +79,16 @@ const navigation: { name: string; href: string; icon: typeof Gauge; activeMatch:
   { name: "Hiring", href: "/hiring", icon: Users, activeMatch: ["/hiring"] },
   { name: "Suppliers", href: "/suppliers", icon: Handshake, activeMatch: ["/suppliers"] },
   { name: "Inventory", href: "/inventory", icon: Boxes, activeMatch: ["/inventory"] },
+  {
+    name: "Registration Access",
+    href: "/admin/allowed-emails",
+    icon: ShieldCheck,
+    activeMatch: ["/admin/allowed-emails"],
+    // Who can self-register is an admin-only decision — a manager must
+    // not see or reach this (see require_admin, stricter than
+    // require_staff, in app/core/deps.py).
+    adminOnly: true,
+  },
 ];
 
 export default function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
@@ -122,7 +141,10 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }: Sidebar
   // check failed), so a "user"-role account never even sees the link
   // flash before disappearing.
   const isStaff = account !== null && isStaffRole(account.role);
-  const visibleNavigation = navigation.filter((item) => !item.staffOnly || isStaff);
+  const isAdmin = account !== null && isAdminRole(account.role);
+  const visibleNavigation = navigation.filter(
+    (item) => (!item.staffOnly || isStaff) && (!item.adminOnly || isAdmin),
+  );
 
   return (
     <>

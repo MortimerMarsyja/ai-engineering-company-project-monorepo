@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { CheckCircle2 } from "lucide-react";
 import AuthPanel from "@/components/AuthPanel";
 import FormField from "@/components/FormField";
 import {
@@ -9,6 +10,7 @@ import {
   registerUser,
   type RegistrationPayload,
 } from "@/lib/auth";
+import { looksLikeValidPhone, PHONE_FORMATS, type RegistrationCountry } from "@/lib/phone-formats";
 
 type RegisterField =
   | "email"
@@ -20,25 +22,54 @@ type RegisterField =
   | "form";
 type RegisterErrors = Partial<Record<RegisterField, string>>;
 
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Matches services/api/app/models/user.py's EMAIL_PATTERN exactly, so a
+// frontend "looks valid" never disagrees with what the backend actually
+// accepts.
+const emailPattern = /^[\w.+-]+@[\w-]+(?:\.[\w-]+)+$/;
+
+function phoneHint(country: RegistrationCountry, phone: string): string {
+  const format = PHONE_FORMATS[country];
+  const looksValid = looksLikeValidPhone(country, phone);
+  if (looksValid === null) return `Expected format for ${format.label}: ${format.example}`;
+  if (looksValid) return "Looks good.";
+  return `Doesn't match the expected ${format.label} format (${format.example}) — you can still continue.`;
+}
 
 export default function RegisterPage() {
   const router = useRouter();
   const [errors, setErrors] = useState<RegisterErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [email, setEmail] = useState("");
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [country, setCountry] = useState<RegistrationCountry>("CO");
+  const [phone, setPhone] = useState("");
+
+  const emailLooksValid = email.trim().length > 0 && emailPattern.test(email.trim());
+
+  function validateEmail(value: string) {
+    if (!emailPattern.test(value.trim())) {
+      setErrors((current) => ({ ...current, email: "Enter a valid email address." }));
+    } else {
+      setErrors((current) => {
+        const { email: _discard, ...rest } = current;
+        return rest;
+      });
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const email = String(formData.get("email") ?? "").trim();
     const password = String(formData.get("password") ?? "");
     const confirmPassword = String(formData.get("confirmPassword") ?? "");
     const name = String(formData.get("name") ?? "").trim();
-    const phone = String(formData.get("phone") ?? "").trim();
     const address = String(formData.get("address") ?? "").trim();
+    const trimmedEmail = email.trim();
+    const trimmedPhone = phone.trim();
     const nextErrors: RegisterErrors = {};
 
-    if (!emailPattern.test(email)) {
+    if (!emailPattern.test(trimmedEmail)) {
       nextErrors.email = "Enter a valid email address.";
     }
     if (!password) {
@@ -50,7 +81,7 @@ export default function RegisterPage() {
     if (name.length > 100) {
       nextErrors.name = "Name must be 100 characters or fewer.";
     }
-    if (phone.length > 30) {
+    if (trimmedPhone.length > 30) {
       nextErrors.phone = "Phone must be 30 characters or fewer.";
     }
     if (address.length > 255) {
@@ -61,9 +92,9 @@ export default function RegisterPage() {
       return;
     }
 
-    const payload: RegistrationPayload = { email, password };
+    const payload: RegistrationPayload = { email: trimmedEmail, password };
     if (name) payload.name = name;
-    if (phone) payload.phone = phone;
+    if (trimmedPhone) payload.phone = trimmedPhone;
     if (address) payload.address = address;
 
     setErrors({});
@@ -101,7 +132,21 @@ export default function RegisterPage() {
             autoComplete="email"
             inputMode="email"
             required
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (emailTouched) validateEmail(e.target.value);
+            }}
+            onBlur={(e) => {
+              setEmailTouched(true);
+              validateEmail(e.target.value);
+            }}
             error={errors.email}
+            trailingAction={
+              !errors.email && emailLooksValid ? (
+                <CheckCircle2 aria-hidden="true" className="size-4 text-emerald-600" />
+              ) : undefined
+            }
           />
           <FormField
             id="register-password"
@@ -135,6 +180,22 @@ export default function RegisterPage() {
             maxLength={100}
             error={errors.name}
           />
+
+          <div className="flex flex-col gap-1.5 text-sm">
+            <span className="font-medium text-[#221810]/80">Phone region</span>
+            <select
+              value={country}
+              onChange={(e) => setCountry(e.target.value as RegistrationCountry)}
+              className="w-full rounded-lg border border-admin-border bg-white px-3 py-2 text-sm text-[#221810] focus:border-brasa-red focus:outline-none focus:ring-2 focus:ring-brasa-red/20"
+            >
+              {Object.entries(PHONE_FORMATS).map(([code, format]) => (
+                <option key={code} value={code}>
+                  {format.label} ({format.dialCode})
+                </option>
+              ))}
+            </select>
+          </div>
+
           <FormField
             id="register-phone"
             name="phone"
@@ -142,8 +203,13 @@ export default function RegisterPage() {
             label="Phone"
             autoComplete="tel"
             maxLength={30}
+            placeholder={PHONE_FORMATS[country].example}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
             error={errors.phone}
+            hint={errors.phone ? undefined : phoneHint(country, phone)}
           />
+
           <FormField
             id="register-address"
             name="address"

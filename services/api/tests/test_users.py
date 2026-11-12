@@ -12,7 +12,7 @@ from app.models.user import UserUpdate
 from app.models.user_storage import users_table
 from app.services import users as users_service
 
-pytestmark = pytest.mark.usefixtures("sql_engine")
+pytestmark = pytest.mark.usefixtures("sql_engine", "open_registration")
 
 
 def _auth_headers(token: str) -> dict[str, str]:

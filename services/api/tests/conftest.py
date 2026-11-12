@@ -34,7 +34,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from app.core.database import get_db
 from app.main import app
-from app.models import candidate_storage, incident_storage, password_reset_token_storage, profile_storage, supplier_storage, user_storage
+from app.models import allowed_email_storage, candidate_storage, incident_storage, password_reset_token_storage, profile_storage, supplier_storage, user_storage
 
 # Modules whose module-level `engine` name must point at the test engine
 # for the duration of each test (each opens its own `Session(engine)` per
@@ -46,9 +46,10 @@ _SERVICE_MODULES_WITH_OWN_ENGINE = [
     "app.services.suppliers",
     "app.services.incidents",
     "app.services.records",
+    "app.services.allowed_emails",
 ]
 
-# Metadata objects for the 7 migrated entities (plain Core Table modules,
+# Metadata objects for the 8 migrated entities (plain Core Table modules,
 # each on its own MetaData — see their shared docstring convention).
 _MIGRATED_ENTITY_METADATAS = [
     user_storage.metadata,
@@ -57,6 +58,7 @@ _MIGRATED_ENTITY_METADATAS = [
     supplier_storage.metadata,
     incident_storage.metadata,
     candidate_storage.metadata,
+    allowed_email_storage.metadata,
 ]
 
 
@@ -103,8 +105,22 @@ def sql_engine(monkeypatch):
     test_engine.dispose()
 
 
+@pytest.fixture
+def open_registration(monkeypatch):
+    """Bypasses the admin-managed registration whitelist
+    (app/services/allowed_emails.py::is_email_allowed) for the duration of
+    one test. Every existing test file that calls POST /users predates the
+    whitelist feature and is testing registration/login/CRUD mechanics,
+    not the whitelist itself — see test_allowed_emails.py for tests of the
+    real gated behavior, which deliberately does NOT use this fixture.
+    """
+    monkeypatch.setattr("app.services.allowed_emails.is_email_allowed", lambda email: True)
+
+
 # NOT autouse globally — other test files (test_telemetry*.py) already
 # define their own `get_db` override with a MagicMock session and must
 # not be affected by this one. Each of the 7 migrated-entity test files
 # opts in explicitly with, at module level:
 #     pytestmark = pytest.mark.usefixtures("sql_engine")
+# Test files that also register users via POST /users additionally opt
+# into `open_registration` (see its own docstring).
