@@ -1,0 +1,21 @@
+[Unit]
+Description=Run nightly-export.service daily at 02:00 UTC
+
+[Timer]
+# No existing schedule was already established for this job anywhere in
+# the repo, so this uses the task's own documented default: daily at
+# 02:00 UTC. The explicit "UTC" suffix is required — without it, systemd
+# resolves OnCalendar against the HOST's configured local timezone, not
+# UTC, which would silently run this at the wrong wall-clock time on any
+# host not already set to UTC. Do not assume the host defaults to UTC;
+# this line is what actually guarantees it regardless of host config.
+OnCalendar=*-*-* 02:00:00 UTC
+# If the host was powered off / the timer unit wasn't active at 02:00 UTC,
+# still run it once it comes back — a nightly job that silently never
+# ran is worse than one that runs a few minutes/hours late. Harmless
+# alongside job_runs' own idempotency: a run for a date already
+# 'completed' is a no-op skip regardless of when it fires.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
