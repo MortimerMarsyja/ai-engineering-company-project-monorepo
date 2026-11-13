@@ -1,0 +1,28 @@
+[Unit]
+Description=nightly_export (telemetry CSV backup + Milestone 6 pipeline trigger)
+After=network.target
+
+[Service]
+Type=oneshot
+# Adjust to the real deployment user/paths on the host — same convention
+# as data/pipelines/weekly-location-performance/deploy/*.service.
+User=brasaland
+WorkingDirectory=/opt/brasaland
+
+# DATABASE_URL (Supabase) and every other setting come from
+# services/api/.env, loaded by app.core.config at import time — not
+# duplicated here. TARGET_DATE is intentionally NOT set here: leaving it
+# unset is what makes the scheduled run always resolve "yesterday in UTC"
+# on its own (see scripts/nightly_export.py's resolve_target_date()).
+# Pass TARGET_DATE=YYYY-MM-DD only for a manual/backfill run, e.g.:
+#   systemctl start nightly-export.service
+#   TARGET_DATE=2026-07-13 /opt/brasaland/services/api/.venv/bin/python /opt/brasaland/scripts/nightly_export.py
+ExecStart=/opt/brasaland/services/api/.venv/bin/python /opt/brasaland/scripts/nightly_export.py
+
+# Not Restart=on-failure: a failed run is recorded in job_runs (status
+# 'failed') and the *next scheduled* occurrence of nightly-export.timer
+# will simply try again for whatever target_date that is — restarting
+# this unit immediately would just re-attempt the same target_date
+# against the same failure, usually pointlessly, and systemd service
+# logs/journald are already the observability surface for this (see
+# nightly-export.timer's own comments for the schedule).

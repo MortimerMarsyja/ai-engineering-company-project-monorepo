@@ -24,3 +24,9 @@ Build cache
 
 # Benchmark results (services/api/benchmark_endpoints.py) — local diagnostic output
 services/api/benchmarks/results/
+
+# scripts/nightly_export.py's generated CSV backups — runtime audit
+# artifacts (may contain session_id/user_id/tags), never source, never
+# committed. data/raw/README.md itself recommends avoiding sensitive data
+# in the repo.
+data/raw/telemetry_*.csv
