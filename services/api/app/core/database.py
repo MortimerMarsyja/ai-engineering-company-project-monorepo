@@ -16,7 +16,7 @@ from __future__ import annotations
 from collections.abc import Generator
 from pathlib import Path
 
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlmodel import Session, SQLModel, create_engine
 from tinydb import TinyDB
 
@@ -46,30 +46,38 @@ def init_db() -> None:
     _run_lightweight_migrations()
 
 
+def _add_column_if_missing(conn, table: str, column: str, ddl: str) -> None:
+    """Add `column` to `table` only if it isn't there yet — the existence
+    check (via SQLAlchemy's Inspector, not a raw dialect-specific clause)
+    is what makes this safe on both Postgres (no native `ADD COLUMN IF NOT
+    EXISTS` support issue) and SQLite (whose `ALTER TABLE ADD COLUMN`
+    doesn't accept `IF NOT EXISTS` at all — the previous raw-SQL version
+    of this function crashed on every SQLite startup, existing column or
+    not).
+    """
+    existing_columns = {col["name"] for col in inspect(conn).get_columns(table)}
+    if column in existing_columns:
+        return
+    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
+
+
 def _run_lightweight_migrations() -> None:
     """Add columns to tables that already existed before this field was
     introduced — `create_all()` only creates missing tables, it never
     alters existing ones. There is no formal migration tool (e.g. Alembic)
     in this project yet; these are small, additive-only, idempotent
-    `ADD COLUMN IF NOT EXISTS` statements, safe to run on every startup.
+    column additions, safe to run on every startup.
     `minimum_stock` backfills to a flat default for every pre-existing
     product (a deliberate choice — see MenuItem.minimum_stock); `unit_cost`
     stays NULL for pre-existing deliveries since there is no real cost on
     file for them to backfill with.
     """
     with engine.begin() as conn:
-        conn.execute(
-            text(
-                "ALTER TABLE menu_items "
-                "ADD COLUMN IF NOT EXISTS minimum_stock DOUBLE PRECISION NOT NULL DEFAULT 5"
-            )
+        _add_column_if_missing(
+            conn, "menu_items", "minimum_stock", "DOUBLE PRECISION NOT NULL DEFAULT 5"
         )
-        conn.execute(
-            text("ALTER TABLE inbound_stock ADD COLUMN IF NOT EXISTS unit_cost DOUBLE PRECISION")
-        )
-        conn.execute(
-            text("ALTER TABLE stock_exits ADD COLUMN IF NOT EXISTS unit_cost DOUBLE PRECISION")
-        )
+        _add_column_if_missing(conn, "inbound_stock", "unit_cost", "DOUBLE PRECISION")
+        _add_column_if_missing(conn, "stock_exits", "unit_cost", "DOUBLE PRECISION")
 
 
 def get_db() -> Generator[Session, None, None]:

@@ -1,7 +1,11 @@
-# Dev-only image for the FastAPI backend (services/api). Only one service
-# exists under services/ today; this Dockerfile builds it explicitly so
-# adding a second service later doesn't require restructuring the build
-# context (build context: ./services, this file: services/Dockerfile).
+# Dev-only image for the FastAPI backend (services/api), also reused
+# as-is for the `worker`/`flower` Celery services (only the command
+# differs — see docker-compose.yml). Build context is the repo root (not
+# ./services) because app/services/reporting.py imports
+# data/pipelines/weekly-location-performance/ directly by an absolute
+# path (see that module's own docstring) — that sibling directory must be
+# copied into the image too, which isn't reachable from a ./services-only
+# build context.
 FROM python:3.12-slim
 
 # uv needs a C toolchain for a couple of sdists it may have to build on
@@ -21,12 +25,18 @@ WORKDIR /app/api
 
 # Install dependencies in their own layer, before the source copy, so
 # editing application code doesn't invalidate the dependency cache.
-COPY api/requirements.txt ./requirements.txt
+COPY services/api/requirements.txt ./requirements.txt
 RUN uv pip install -r requirements.txt
 
 # Overridden at runtime by docker-compose's bind mount for --reload; kept
 # here so the image is runnable standalone too.
-COPY api ./
+COPY services/api ./
+
+# app/services/reporting.py's sys.path setup expects this pipeline at
+# exactly this absolute path in every environment that imports app.main
+# (also bind-mounted at runtime by docker-compose for live reload, same
+# reasoning as ./api above).
+COPY data/pipelines/weekly-location-performance /data/pipelines/weekly-location-performance
 
 EXPOSE 8000
 

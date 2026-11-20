@@ -26,6 +26,10 @@ dependencies = [
     # but prefect itself doesn't declare it as a dependency — without this,
     # `prefect server start`/any `prefect` CLI command fails on import.
     "importlib-metadata>=10.1.0",
+    # Background task processing (app/celery_app.py, app/tasks/) — broker
+    # and result backend are both Redis (REDIS_URL), see docker-compose.yml.
+    "celery[redis]==5.5.3",
+    "flower==2.0.1",
 ]
 
 [project.scripts]

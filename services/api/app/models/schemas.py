@@ -196,6 +196,20 @@ class AnalyzeSummaryResponse(BaseModel):
     note: str | None = None
 
 
+# ── Background tasks (Celery) ─────────────────────────────
+# Deliberately flat shapes ({"task_id": ...}, not the ApiResponse/
+# DataEnvelope envelopes the rest of this app uses) — this is the exact
+# contract specified for the Celery task-submission/status endpoints.
+class TaskSubmissionResponse(BaseModel):
+    task_id: str
+
+
+class TaskStatusResponse(BaseModel):
+    task_id: str
+    status: str
+    result: Any | None = None
+
+
 # ── Brasa Points registration ────────────────────────────
 Country = Literal["Colombia", "United States"]
 City = Literal["Medellín", "Bogotá", "Cali", "Miami", "Orlando"]

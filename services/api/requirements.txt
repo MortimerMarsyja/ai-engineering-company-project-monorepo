@@ -21,6 +21,19 @@ psycopg2-binary>=2.9.13
 # ── Data analysis (telemetry report pipeline) ─────────────
 pandas>=2.2
 
+# ── Reporting pipeline bridge (app/services/reporting.py imports
+# data/pipelines/weekly-location-performance/flow.py directly) ───────────
+prefect>=3.4.5
+# prefect.workers.base imports the importlib_metadata backport
+# unconditionally (not stdlib importlib.metadata) even on Python 3.13,
+# but prefect itself doesn't declare it as a dependency — without this,
+# `prefect server start`/any `prefect` CLI command fails on import.
+importlib-metadata>=10.1.0
+
+# ── Background task processing (Celery + Redis broker/backend) ───────────
+celery[redis]==5.5.3
+flower==2.0.1
+
 # ── Dev / Test ────────────────────────────────────────────
 pytest==8.3.5
 pytest-asyncio==0.25.3

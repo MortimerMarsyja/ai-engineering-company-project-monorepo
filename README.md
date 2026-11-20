@@ -78,6 +78,96 @@ Notes:
 
 ---
 
+## Background task processing (Celery + Redis)
+
+`POST /api/v1/incidents/analyze` (CSV upload → incident ingestion) runs as a **Celery task** instead of inline in the request — it's the only CPU/DB-bound operation in the API heavy enough to justify it (the other write endpoints are single-row inserts). The task, broker config, and dead-letter handling live in `services/api/app/celery_app.py` and `services/api/app/tasks/incidents.py`.
+
+**Required env var:** `REDIS_URL` (see `.env.example`) — the same Redis instance is Celery's broker **and** result backend. Defaults to `redis://localhost:6379/0` for running `services/api` directly on the host; `docker-compose.yml` overrides it to `redis://redis:6379/0` for the `backend`, `worker`, and `flower` containers.
+
+### Install and migrate
+
+```bash
+cd services/api
+uv pip install -r requirements.txt   # or: pip install -e ".[test]" — adds celery[redis] + flower
+```
+
+The dead-letter/submission tables are a normal Supabase migration: `supabase/migrations/20261118100000_create_task_tracking_tables.sql`. Apply it the same way as every other migration in `supabase/migrations/`.
+
+### Start / stop
+
+With Docker (recommended — starts Redis, the worker, and Flower alongside the API):
+
+```bash
+docker compose up --build        # redis, backend, worker, flower, ui
+docker compose stop              # stop everything, keep containers
+docker compose logs -f worker    # tail the worker's logs
+docker compose logs -f flower
+```
+
+Running on the host instead (needs a local Redis — `brew install redis && redis-server`, or `redis:7-alpine` on its own):
+
+```bash
+cd services/api
+uv run celery -A app.celery_app worker --loglevel=info
+uv run celery -A app.celery_app flower --port=5555
+```
+
+- **Flower UI** → http://localhost:5555 (local dev only, no auth configured — do not expose it publicly as-is; see Limitations).
+
+### Submitting a task and polling status
+
+```bash
+# Submit — returns 202 immediately, before the CSV is actually processed.
+curl -X POST http://localhost:8000/api/v1/incidents/analyze \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@incidents.csv"
+# {"task_id": "3f1b7e3a-..."}
+
+# Poll status with the returned task_id.
+curl http://localhost:8000/api/v1/tasks/3f1b7e3a-... \
+  -H "Authorization: Bearer $TOKEN"
+# {"task_id": "3f1b7e3a-...", "status": "started", "result": null}
+# ... later ...
+# {"task_id": "3f1b7e3a-...", "status": "success", "result": {"total_rows": 10, "valid_count": 10, "persisted_count": 10}}
+```
+
+`status` is one of `pending`, `started`, `retry`, `success`, `failure` (lowercased from Celery's own states). Only the task's submitter, or an admin/manager, may poll it — anyone else gets `403`; an unknown `task_id` returns `404`.
+
+### Retry behavior and attempt numbering
+
+Transient failures (DB connectivity errors) are retried automatically: **1 initial attempt + up to 3 retries**, with exponential backoff (2s, 4s, 8s between attempts). Attempt numbers are **one-based** — exhausting all retries means failing on **attempt 4**. Permanent errors (e.g. the submitting user is no longer active) are never retried and fail immediately on attempt 1. Retrying never duplicates the DB writes a prior attempt already made for the same `task_id` (see Idempotency below).
+
+### Dead-letter storage and inspection
+
+When a task exhausts its retries (or hits a permanent error), exactly one row is written to `task_dead_letters` — never one per intermediate retry, and never more than one per terminal failure even if the failure signal fires more than once:
+
+```sql
+select task_id, task_name, attempt_number, error_message, created_at
+from task_dead_letters
+order by created_at desc
+limit 20;
+```
+
+If writing the dead-letter row itself fails, both the original task error and the dead-letter write error are logged separately — the task is never reported as successful in that case.
+
+### Result retention and unknown/expired tasks
+
+Successful/failed results are kept in the Redis result backend for 24h (`result_expires`), then expire. A `GET /tasks/{task_id}` for a `task_id` that was never submitted, or whose result already expired, both currently return `pending`/`404` depending on whether a submission row still exists — `pending` does **not** prove a task exists or is actually queued; it can also mean "never existed" or "result expired." The API relies on its own `task_submissions` table (written before enqueueing) to distinguish "never submitted" (`404`) from "submitted, no result yet or expired" (`pending`).
+
+### Idempotency
+
+Before writing incident rows, the task checks whether its own `task_id` already persisted (`task_submissions.persisted_at`). A redelivery or retry of the same `task_id` that already wrote its rows will report `persisted_count: 0` on the later run instead of duplicating them.
+
+### Operational limitations
+
+- **Independent worker only** — the worker is its own container/process; it is never started inside the FastAPI app or its lifespan.
+- **Flower visibility vs. API visibility**: Flower's event stream only shows a task once a worker has actually received it (received/started/retried/succeeded/failed). A task that's been *published to the broker but not yet picked up by any worker* won't show up in Flower yet, even though `GET /tasks/{task_id}` already reports `pending` for it via the result backend. This is expected Celery/Flower behavior, not a bug.
+- **`GET /incidents/result/export`** (export of the last in-process analysis) is now broken by this change — it read an in-memory global that only existed when analysis ran inline in the API process. It's out of scope for this task and documented here as a known follow-up.
+- **Flower has no authentication configured** in `docker-compose.yml` (`FLOWER_UNAUTHENTICATED_API` is intentionally left unset) — its port is bound to `127.0.0.1` only for local dev; do not expose it publicly without adding auth first.
+- A full `docker compose up` of the `redis`/`worker`/`flower` services was not exercised end-to-end in this environment (no running Docker daemon at the time); `docker compose config` was used to validate the compose file instead. The Celery pipeline itself (task, retries, backoff, dead-letters, idempotency, API endpoints, Flower lifecycle events) was verified against a real standalone Redis + a real independent worker process + a real Flower instance + real HTTP requests.
+
+---
+
 ## How to think about this monorepo
 
 You are building **one company** across many milestones and projects. Each top-level folder has a **single responsibility** — like a real engineering team repo.

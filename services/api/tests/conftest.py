@@ -34,7 +34,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from app.core.database import get_db
 from app.main import app
-from app.models import allowed_email_storage, candidate_storage, incident_storage, password_reset_token_storage, profile_storage, supplier_storage, user_storage
+from app.models import allowed_email_storage, candidate_storage, incident_storage, password_reset_token_storage, profile_storage, supplier_storage, task_tracking_storage, user_storage
 
 # Modules whose module-level `engine` name must point at the test engine
 # for the duration of each test (each opens its own `Session(engine)` per
@@ -47,9 +47,10 @@ _SERVICE_MODULES_WITH_OWN_ENGINE = [
     "app.services.incidents",
     "app.services.records",
     "app.services.allowed_emails",
+    "app.services.task_tracking",
 ]
 
-# Metadata objects for the 8 migrated entities (plain Core Table modules,
+# Metadata objects for the 9 migrated entities (plain Core Table modules,
 # each on its own MetaData — see their shared docstring convention).
 _MIGRATED_ENTITY_METADATAS = [
     user_storage.metadata,
@@ -59,6 +60,7 @@ _MIGRATED_ENTITY_METADATAS = [
     incident_storage.metadata,
     candidate_storage.metadata,
     allowed_email_storage.metadata,
+    task_tracking_storage.metadata,
 ]
 
 

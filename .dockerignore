@@ -1,8 +1,9 @@
-# Applies to the repo-root build context — currently only the `ui` service
-# in docker-compose.yml, which builds uis/Dockerfile from the repo root
-# (not uis/) so it can also COPY packages/shared (see that Dockerfile's
-# comment for why). `backend`'s context is still ./services, governed by
-# services/.dockerignore, unaffected by this file.
+# Applies to the repo-root build context, shared by two Dockerfiles now:
+# uis/Dockerfile (the `ui` service, which also COPYs packages/shared) and
+# services/Dockerfile (the `backend`/`worker`/`flower` services, which also
+# COPY data/pipelines/weekly-location-performance — see that Dockerfile's
+# own comment for why). `services` and `data` must NOT be blanket-excluded
+# below — only their unneeded subpaths are.
 
 # Generic noise, wherever it appears.
 **/node_modules
@@ -20,11 +21,10 @@
 **/*.pyc
 **/.pytest_cache
 
-# Entire directories the ui image never needs — the Dockerfile only COPYs
-# uis/brasaland-web, uis/backoffice, and packages/shared; everything else
-# at root would otherwise bloat the build context for no reason.
-services
-data
+# Entire directories neither image needs — the Dockerfiles only COPY
+# uis/brasaland-web, uis/backoffice, packages/shared, services/api, and
+# data/pipelines/weekly-location-performance; everything else at root
+# would otherwise bloat the build context for no reason.
 docs
 supabase
 scripts
@@ -38,3 +38,16 @@ workflows
 infra
 .claude
 .devcontainer
+
+# services/ and data/ keep almost everything out too — only the two
+# subpaths services/Dockerfile actually COPYs are re-included.
+services/*
+!services/api
+!services/Dockerfile
+!services/.dockerignore
+
+data/*
+!data/pipelines
+
+data/pipelines/*
+!data/pipelines/weekly-location-performance
