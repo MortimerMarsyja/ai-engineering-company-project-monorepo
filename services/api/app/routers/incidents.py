@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import io
 import logging
+import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
@@ -23,7 +24,6 @@ from fastapi.responses import StreamingResponse
 from app.core import cache
 from app.core.deps import get_current_user, require_any_user, require_staff
 from app.models.schemas import (
-    AnalyzeSummaryResponse,
     DataEnvelope,
     IncidentCreate,
     IncidentMetricsResponse,
@@ -31,19 +31,20 @@ from app.models.schemas import (
     IncidentStatusUpdate,
     IncidentUpdate,
     PaginatedResponse,
+    TaskSubmissionResponse,
 )
+from app.services import task_tracking
 from app.services.incidents import (
-    analyze,
     create_incident,
     get_incident_by_id,
     get_incident_metrics,
     list_incidents,
     read_csv_from_bytes,
     results_to_csv_bytes,
-    results_to_summary_json,
     update_incident,
     update_incident_status,
 )
+from app.tasks.incidents import process_incidents_csv
 
 logger = logging.getLogger(__name__)
 
@@ -108,18 +109,34 @@ async def get_incident_metrics_route(current_user: dict = Depends(require_staff)
 
 
 # ── POST /incidents/analyze ────────────────────────────────
-@router.post("/analyze", response_model=DataEnvelope[AnalyzeSummaryResponse])
+@router.post("/analyze", response_model=TaskSubmissionResponse, status_code=202)
 async def analyze_incidents(
     file: UploadFile = File(...),
     current_user: dict = Depends(require_any_user),
 ):
     """
-    Accept a CSV file via multipart/form-data, run the same validation
-    analysis as ``analyze.py``, persist valid rows into the incidents
-    table, and return a JSON summary (authenticated).
-    """
-    global _last_analysis
+    Accept a CSV file via multipart/form-data, validate + parse it
+    synchronously (same checks as before), then enqueue the actual
+    analysis + persistence as a Celery background task and return 202
+    immediately with the task's id — poll GET /tasks/{task_id} for the
+    outcome.
 
+    Moved off the request process because `analyze()` (parse + validate +
+    insert every valid row) is open-ended work proportional to file size;
+    see app/tasks/incidents.py's module docstring for why this endpoint
+    was chosen over the alternative candidate.
+
+    Request validation/authorization all still happen here, before
+    anything is enqueued — only already-parsed, JSON-serializable `rows`
+    cross into the task, never the UploadFile/Request itself.
+
+    NOTE: this endpoint no longer populates the in-memory `_last_analysis`
+    global GET /incidents/result/export reads (that export endpoint
+    predates this change and was never part of this task's scope to
+    redesign) — the analysis now runs in a separate worker process, which
+    cannot share a Python global with this one. See the PR description
+    for this known, documented limitation.
+    """
     # ── Validate content-type hint ──────────────────────────
     if file.content_type and "csv" not in file.content_type and "octet-stream" not in file.content_type:
         # Some clients send text/plain for CSV — allow it.
@@ -161,21 +178,35 @@ async def analyze_incidents(
             detail="Could not read the CSV file. Please check the format and try again.",
         )
 
-    # ── Analyse + persist ───────────────────────────────────
+    # ── Enqueue (never run the heavy analysis in this process) ───────
+    # task_id is generated here (not left to Celery) and the submission
+    # row is written BEFORE the broker publish is even attempted: the
+    # task must never be able to start executing before
+    # task_submissions has a row for it (the worker's idempotency guard
+    # and GET /tasks/{id}'s ownership check both depend on that row
+    # existing) — see app/services/task_tracking.py's module docstring.
+    task_id = str(uuid.uuid4())
+    task_tracking.record_submission(
+        task_id=task_id,
+        task_name=process_incidents_csv.name,
+        submitted_by=current_user["id"],
+    )
+
     try:
-        results = analyze(rows)
+        process_incidents_csv.apply_async(args=[rows, current_user["id"]], task_id=task_id)
     except Exception:
-        logger.exception("Unexpected error while analyzing incidents CSV")
+        # The broker never accepted the task — it will never run, so the
+        # submission row would only be a permanent, misleading "not found"
+        # trap for GET /tasks/{id}. Clean it up and report a real error
+        # instead of 202.
+        logger.exception("Failed to publish incidents-CSV task %s to the broker", task_id)
+        task_tracking.delete_submission(task_id)
         raise HTTPException(
-            status_code=500,
-            detail="Something went wrong analyzing this file. Please try again.",
+            status_code=503,
+            detail="Could not queue this file for processing right now. Please try again.",
         )
 
-    # Cache results for the export endpoint
-    _last_analysis = results
-
-    summary = results_to_summary_json(results)
-    return {"data": summary}
+    return {"task_id": task_id}
 
 
 # ── GET /incidents/result/export ───────────────────────────

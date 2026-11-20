@@ -145,12 +145,32 @@ class TestIncidentMetricsContract:
 # ── POST /incidents/analyze ──────────────────────────────────
 class TestAnalyzeContract:
     @pytest.mark.asyncio
-    async def test_analyze_shape_has_no_status_field(self):
+    async def test_analyze_response_shape_is_flat_task_id_only(self, monkeypatch):
+        """POST /incidents/analyze now enqueues the heavy work as a Celery
+        task instead of running it synchronously (see
+        app/tasks/incidents.py) — its response contract changed from the
+        old {"data": {...summary...}} envelope to a flat, immediate
+        {"task_id": "..."} (202 Accepted); the actual summary is fetched
+        later via GET /tasks/{task_id}. The Celery task itself is mocked
+        here (no real broker needed for this contract-shape test) — see
+        test_tasks_router.py for the full submission/status contract
+        suite, and test_celery_incidents_task.py for the task's real
+        execution behavior against the real database.
+        """
         csv_content = (
             "incident_id,date,location_id,category,description,status,reporter_id,"
             "satisfaction_score\n"
             "1,2026-01-01,COL-01,EQUIPMENT,Grill malfunction during lunch,OPEN,MGR-01,\n"
         )
+
+        class _FakeTask:
+            name = "app.tasks.incidents.process_incidents_csv"
+
+            def apply_async(self, args=None, task_id=None, **kwargs):
+                return type("R", (), {"id": task_id})()
+
+        monkeypatch.setattr("app.routers.incidents.process_incidents_csv", _FakeTask())
+
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
@@ -161,10 +181,10 @@ class TestAnalyzeContract:
                 files={"file": ("incidents.csv", csv_content, "text/csv")},
             )
 
+        assert resp.status_code == 202
         body = resp.json()
-        assert set(body.keys()) == {"data"}
-        assert body["data"]["total_records"] == 1
-        assert "status" not in body
+        assert set(body.keys()) == {"task_id"}
+        assert isinstance(body["task_id"], str) and body["task_id"]
 
 
 # ── GET /records (list) ──────────────────────────────────────

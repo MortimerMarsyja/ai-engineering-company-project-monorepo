@@ -8,13 +8,21 @@
 #          (http://localhost:3001) — one container, two Next.js dev
 #          servers (see uis/start.sh).
 # backend: FastAPI (http://localhost:8000), services/api/app/main.py.
+# redis:   Celery's broker AND result backend (services/api/app/celery_app.py).
+# worker:  independent Celery worker process — never runs inside `backend`
+#          (see services/api/app/celery_app.py's module docstring).
+# flower:  Celery monitoring UI (http://localhost:5555).
 #
-# Both services share the "brasaland-net" network and reach each other
-# by service name (e.g. the backoffice's server-side route handlers call
-# http://backend:8000, never http://localhost:8000 — localhost inside a
-# container means the container itself, not its sibling). Code the
-# browser loads (the Next.js pages/JS) instead uses the host-facing
-# http://localhost:8000, since the browser runs outside every container.
+# All services share the "brasaland-net" network and reach each other by
+# service name — e.g. the backoffice's server-side route handlers call
+# http://backend:8000, and backend/worker/flower all reach Redis at
+# redis://redis:6379/0, never "localhost" — localhost inside a container
+# means the container itself, not its sibling. Code the browser loads
+# (the Next.js pages/JS) instead uses the host-facing http://localhost:8000,
+# since the browser runs outside every container. REDIS_URL in .env
+# defaults to redis://localhost:6379/0 for running services/api directly
+# on the host; every container below overrides it to the "redis" service
+# hostname explicitly.
 
 services:
   ui:
@@ -48,17 +56,96 @@ services:
 
   backend:
     build:
-      context: ./services
-      dockerfile: Dockerfile
+      # Repo root, not ./services — see services/Dockerfile's own
+      # docstring (it also COPYs data/pipelines/weekly-location-performance,
+      # which app/services/reporting.py imports directly).
+      context: .
+      dockerfile: services/Dockerfile
     env_file:
       - ./.env
+    environment:
+      # Overrides whatever REDIS_URL .env has (localhost, for running the
+      # API directly on the host) with the in-network service hostname.
+      - REDIS_URL=redis://redis:6379/0
     volumes:
       # Bind-mount source for --reload; /opt/venv (where dependencies
       # were installed) lives outside /app/api, so this mount can't
       # shadow them.
       - ./services/api:/app/api
+      - ./data/pipelines/weekly-location-performance:/data/pipelines/weekly-location-performance
     ports:
       - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - brasaland-net
+
+  redis:
+    # Official image — both Celery's broker and result backend (a single
+    # Redis instance for both, see app/celery_app.py: no reason to run a
+    # second broker technology once Redis is already required
+    # infrastructure).
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory-policy", "noeviction"]
+    ports:
+      # Bound to localhost only — this is local dev, same convention as
+      # the DB itself (Supabase, accessed over the network, never exposed
+      # as a bare port here). A production deployment should keep this
+      # off the public internet entirely (internal network / no published
+      # port at all) rather than relying on this binding.
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - brasaland-net
+
+  worker:
+    # Independent Celery worker — its own container/process, never
+    # started inside `backend`'s FastAPI process (no APScheduler, no
+    # @repeat_every, no lifespan hook — see app/celery_app.py's module
+    # docstring). Same image/build as `backend` so it shares the exact
+    # same code, dependencies, and DB access; only the command differs.
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+    command: ["celery", "-A", "app.celery_app", "worker", "--loglevel=info"]
+    env_file:
+      - ./.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./services/api:/app/api
+      - ./data/pipelines/weekly-location-performance:/data/pipelines/weekly-location-performance
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - brasaland-net
+
+  flower:
+    # Celery monitoring UI — http://localhost:5555. Same image as
+    # `backend`/`worker`; only the command differs.
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+    command: ["celery", "-A", "app.celery_app", "flower", "--port=5555"]
+    env_file:
+      - ./.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./data/pipelines/weekly-location-performance:/data/pipelines/weekly-location-performance
+    ports:
+      # Bound to localhost only, same reasoning as `redis` above — this
+      # UI has no authentication configured by default.
+      - "127.0.0.1:5555:5555"
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - brasaland-net
 

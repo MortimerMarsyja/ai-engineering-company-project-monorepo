@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     # Database (extend when ready)
     DATABASE_URL: str = "sqlite+aiosqlite:///./dev.db"
 
+    # Background task processing — Celery's broker AND result backend
+    # (app/celery_app.py). Same URL used by the API process (to enqueue
+    # tasks and poll results), the independent worker, and Flower. In
+    # Docker Compose this must be the service hostname ("redis"), never
+    # "localhost" — see docker-compose.yml.
+    REDIS_URL: str = "redis://localhost:6379/0"
+
     # Telemetry
     # pydantic-settings lo lee de la variable de entorno o de .env; "" = sin configurar.
     # No usado todavía (POST /telemetry/events solo valida/loguea/confirma en esta

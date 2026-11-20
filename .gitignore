@@ -24,3 +24,10 @@ Build cache
 
 # Benchmark results (services/api/benchmark_endpoints.py) — local diagnostic output
 services/api/benchmarks/results/
+
+# Local SQLite dev database and Redis dump — never shared, regenerated per machine
+services/api/dev.db
+dump.rdb
+
+# Archify-generated diagrams — scratch output, not part of the deliverable
+.archify/
