@@ -272,12 +272,13 @@ name = "brasaland-api"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "bcrypt" },
     { name = "celery", extra = ["redis"] },
     { name = "fastapi" },
     { name = "flower" },
     { name = "httpx" },
     { name = "importlib-metadata" },
-    { name = "libpass", extra = ["bcrypt"] },
+    { name = "libpass" },
     { name = "pandas" },
     { name = "prefect" },
     { name = "psycopg2-binary" },
@@ -303,13 +304,14 @@ test = [
 
 [package.metadata]
 requires-dist = [
+    { name = "bcrypt", specifier = ">=4.0" },
     { name = "celery", extras = ["redis"], specifier = "==5.5.3" },
     { name = "datamodel-code-generator", marker = "extra == 'codegen'", specifier = ">=0.25" },
     { name = "fastapi", specifier = "==0.115.12" },
     { name = "flower", specifier = "==2.0.1" },
     { name = "httpx", specifier = "==0.28.1" },
     { name = "importlib-metadata", specifier = ">=10.1.0" },
-    { name = "libpass", extras = ["bcrypt"], specifier = ">=1.9.0" },
+    { name = "libpass", specifier = ">=1.9.0" },
     { name = "pandas", specifier = ">=2.2" },
     { name = "prefect", specifier = ">=3.4.5" },
     { name = "psycopg2-binary", specifier = ">=2.9.13" },
@@ -1389,11 +1391,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/2a/f6/210563eef148773ef835d21c0fa1e8a43c5b10fceb1f63d5d650635b81da/libpass-1.9.3.tar.gz", hash = "sha256:7830b9323d9ba96a841ad698a8dec1d43a2b0b7f1c855c76772e7972c1c6d959", size = 692901, upload-time = "2025-10-09T14:26:28.363Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ed/a6/ff00d926a9f4ece9e0732bcea1c3e8e9280390f48cec53f237e21f220082/libpass-1.9.3-py3-none-any.whl", hash = "sha256:3cbeb14d22086660e92c30d787ea981973d67394e81c8c870e1a83cfe1c84353", size = 307118, upload-time = "2025-10-09T14:26:25.551Z" },
-]
-
-[package.optional-dependencies]
-bcrypt = [
-    { name = "bcrypt" },
 ]
 
 [[package]]

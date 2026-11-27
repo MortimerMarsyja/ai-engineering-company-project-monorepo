@@ -13,7 +13,15 @@ httpx==0.28.1
 # ── Database and authentication ───────────────────────────
 tinydb==4.9.0
 python-jose[cryptography]>=3.5.0
-libpass[bcrypt]>=1.9.0
+# libpass 1.9.5(.post0) declares no "bcrypt" extra at all (pip/uv installs
+# it fine but silently drops the extra with just a warning, so the bcrypt
+# backend passlib.hash.bcrypt needs was never actually installed — every
+# hash_password()/verify_password() call failed with
+# passlib.exc.MissingBackendError at runtime). bcrypt is the real backend
+# passlib's bcrypt handler loads at import time; declare it directly
+# instead of depending on an extra this version doesn't define.
+libpass>=1.9.0
+bcrypt>=4.0
 resend==2.49.0
 sqlmodel>=0.0.48
 psycopg2-binary>=2.9.13
