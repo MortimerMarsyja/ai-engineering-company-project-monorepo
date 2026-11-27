@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Gauge } from "lucide-react";
+import { BarChart3, Gauge, TrendingUp } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import ReportLinkCard from "@/components/ReportLinkCard";
 import RestrictedState from "@/components/RestrictedState";
@@ -33,6 +33,12 @@ export default function ReportsPage() {
             icon={BarChart3}
             title="Telemetry Operations Report"
             description="Event volume, API latency, and error rates captured across the backoffice and website."
+          />
+          <ReportLinkCard
+            href="/sales-forecast"
+            icon={TrendingUp}
+            title="Sales Forecast"
+            description="Monthly revenue forecast — Random Forest (revenue), Random Forest (YoY growth), and a seasonal-naive baseline, compared on the same test period."
           />
         </div>
       )}

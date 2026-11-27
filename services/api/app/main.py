@@ -24,6 +24,7 @@ from app.routers import (
     profiles,
     records,
     reporting,
+    sales_forecast,
     suppliers,
     tasks,
     telemetry,
@@ -102,6 +103,7 @@ def create_app() -> FastAPI:
     application.include_router(profiles.router, prefix=settings.API_V1_PREFIX)
     application.include_router(telemetry.router, prefix=settings.API_V1_PREFIX)
     application.include_router(reporting.router, prefix=settings.API_V1_PREFIX)
+    application.include_router(sales_forecast.router, prefix=settings.API_V1_PREFIX)
     application.include_router(allowed_emails.router, prefix=settings.API_V1_PREFIX)
     application.include_router(tasks.router, prefix=settings.API_V1_PREFIX)
 

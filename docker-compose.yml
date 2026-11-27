@@ -73,6 +73,10 @@ services:
       # shadow them.
       - ./services/api:/app/api
       - ./data/pipelines/weekly-location-performance:/data/pipelines/weekly-location-performance
+      # app/services/sales_forecast.py reads this pipeline's output
+      # (metrics.json/forecast.csv/predictions.json) straight off disk —
+      # no database involved, so it needs this mounted the same way.
+      - ./data/process/sales-profit-forecast:/data/process/sales-profit-forecast
     ports:
       - "8000:8000"
     depends_on:

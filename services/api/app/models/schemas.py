@@ -742,3 +742,76 @@ class WeeklyLocationPerformanceResponse(BaseModel):
 
     week_start: date
     locations: list[WeeklyLocationPerformanceEntry]
+
+
+# ── Sales forecast (data/pipelines/sales-profit-forecast) ─────────────
+class SalesForecastModelMetrics(BaseModel):
+    """Mirrors `metrics.compute_all_metrics`'s keys exactly. `psi_*` is
+    absent for the seasonal-naive baseline (it has no train/test prediction
+    distributions to compare), hence optional."""
+
+    mse: float
+    rmse: float
+    mae: float
+    r2: float
+    wape: float
+    gini_regression: float
+    psi_predicted_distribution_train_vs_test: float | None = None
+
+
+class SalesForecastCandidate(BaseModel):
+    name: str
+    metrics: SalesForecastModelMetrics
+
+
+class SalesForecastRankingEntry(BaseModel):
+    model: str
+    mae: float
+
+
+class SalesForecastBestModel(BaseModel):
+    winner: str
+    ranking: list[SalesForecastRankingEntry]
+
+
+class SalesForecastMonth(BaseModel):
+    month: date
+    revenue_usd: float
+
+
+class SalesForecastTestPeriod(BaseModel):
+    """One-month-ahead predictions for all three candidates over the same
+    24 test months (2024-2025), plus the real actual revenue — lets the
+    dashboard show each model's predicted line against the truth."""
+
+    months: list[date]
+    actual: list[float]
+    random_forest_revenue: list[float]
+    random_forest_growth: list[float]
+    seasonal_naive: list[float]
+
+
+class SalesForecastByModel(BaseModel):
+    """Each candidate's OWN 12-month forward forecast — not just the
+    winner's — so the dashboard can show "prediction by model"."""
+
+    random_forest_revenue: list[SalesForecastMonth]
+    random_forest_growth: list[SalesForecastMonth]
+    seasonal_naive: list[SalesForecastMonth]
+
+
+class SalesForecastResponse(BaseModel):
+    """GET /sales-forecast response — the full three-way model comparison,
+    the winning model's 12-month forecast, the full historical series, the
+    test-period per-model predictions, and every candidate's own 12-month
+    forecast. Straight from
+    `data/process/sales-profit-forecast/{metrics.json,forecast.csv,predictions.json}`."""
+
+    random_forest_revenue: SalesForecastCandidate
+    random_forest_growth: SalesForecastCandidate
+    baseline: SalesForecastCandidate
+    best_model: SalesForecastBestModel
+    forecast: list[SalesForecastMonth]
+    historical: list[SalesForecastMonth]
+    test_period: SalesForecastTestPeriod
+    forecast_by_model: SalesForecastByModel

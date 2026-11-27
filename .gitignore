@@ -31,3 +31,13 @@ dump.rdb
 
 # Archify-generated diagrams — scratch output, not part of the deliverable
 .archify/
+
+# Pytest cache
+.pytest_cache/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# sales-profit-forecast pipeline artifacts — regenerable from
+# data/raw/sales/brasaland_sales.csv via `pipeline.py`
+data/process/sales-profit-forecast/

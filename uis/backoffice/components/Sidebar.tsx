@@ -69,7 +69,7 @@ const navigation: {
     name: "Reports",
     href: "/reports",
     icon: BarChart3,
-    activeMatch: ["/reports", "/reporting", "/telemetry-report"],
+    activeMatch: ["/reports", "/reporting", "/telemetry-report", "/sales-forecast"],
     // Both report pages call require_staff (admin/manager) endpoints —
     // hidden for everyone else so a "user"-role account never lands on a
     // link that would just reject them (see RestrictedState/useStaffGate).

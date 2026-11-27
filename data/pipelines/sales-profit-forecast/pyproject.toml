@@ -1,0 +1,20 @@
+[project]
+name = "sales-profit-forecast"
+version = "0.1.0"
+description = "Monthly revenue forecasting pipeline for Brasaland (RandomForestRegressor on data/raw/sales/brasaland_sales.csv)."
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "scikit-learn>=1.5",
+    "matplotlib>=3.9",
+    "joblib>=1.4",
+    "nbformat>=5.10",
+    "nbclient>=0.10",
+    "ipykernel>=6.29",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
